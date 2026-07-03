@@ -421,8 +421,10 @@ async function loadGpuStatus(){
   try{
     const g=await api('/api/gpu');
     const e=el('gpuStatus');
-    if(g.apple_silicon){e.innerHTML='&#63743; Metal';e.title=g.details||'Apple Silicon'}
-    else{e.innerHTML='&#x1F5A5; CPU';e.title='No GPU acceleration'}
+    if(g.apple_silicon){
+      if(g.backend==='ollama'){e.innerHTML='&#63743; Metal (Ollama)';e.title='Apple Silicon via Ollama on host'}
+      else{e.innerHTML='&#63743; Metal';e.title=g.details||'Apple Silicon'+(g.memory_gb?' '+g.memory_gb+' GB':'')}
+    }else{e.innerHTML='&#x1F5A5; CPU';e.title='No GPU acceleration'}
   }catch(_){}
 }
 
@@ -646,7 +648,14 @@ async function loadAbout(){
     if(o.connected){oi.innerHTML='Status: <span style="color:var(--green)">Connected</span><br>Model: '+o.model+(o.model_available?' <span style="color:var(--green)">&#x2713;</span>':' <span style="color:var(--red)">not found</span>')+'<br>Fast: '+o.fast_model+(o.fast_available?' <span style="color:var(--green)">&#x2713;</span>':' <span style="color:var(--red)">not found</span>')+'<br>Embed: '+o.embed_model+(o.embed_available?' <span style="color:var(--green)">&#x2713;</span>':' <span style="color:var(--red)">not found</span>')}
     else{oi.innerHTML='Status: <span style="color:var(--red)">Disconnected</span> (tried '+o.base_url+')'}
     const gi=el('gpuInfo');
-    gi.innerHTML=g.apple_silicon?'Backend: <span style="color:var(--green)">Metal (Apple Silicon)</span><br>Details: '+(g.details||'Apple Silicon')+(g.memory_gb?'<br>Memory: '+g.memory_gb+' GB':''):'Backend: '+g.backend;
+    if(g.apple_silicon){
+      let h='Backend: <span style="color:var(--green)">Apple Silicon</span>';
+      if(g.backend==='metal')h+='<br>GPU: '+g.details;
+      else if(g.backend==='ollama')h+='<br>GPU: Metal via Ollama (host)';
+      if(g.memory_gb)h+='<br>Memory: '+g.memory_gb+' GB';
+      if(g.container)h+='<br>Runtime: Docker';
+      gi.innerHTML=h;
+    }else{gi.innerHTML='Backend: '+g.backend}
   }catch(_){}
 }
 

@@ -137,10 +137,12 @@ class RouteHandler(BaseHTTPRequestHandler):
 
     def _handle_gpu_status(self) -> None:
         import subprocess
-        info = {"backend": "cpu", "apple_silicon": False, "details": ""}
-        if platform.system() == "Darwin":
+        info: dict[str, Any] = {"backend": "cpu", "apple_silicon": False, "details": ""}
+        in_docker = platform.system() != "Darwin"
+        if not in_docker:
             info["backend"] = "metal"
             info["apple_silicon"] = True
+            info["container"] = False
             try:
                 r = subprocess.run(
                     ["sysctl", "-n", "machdep.cpu.brand_string"],
@@ -154,10 +156,22 @@ class RouteHandler(BaseHTTPRequestHandler):
                     ["sysctl", "-n", "hw.memsize"],
                     capture_output=True, text=True, timeout=5,
                 )
-                mem_bytes = int(r2.stdout.strip())
-                info["memory_gb"] = round(mem_bytes / (1024**3), 1)
+                info["memory_gb"] = round(int(r2.stdout.strip()) / (1024**3), 1)
             except Exception:
                 pass
+        else:
+            info["container"] = True
+            info["backend"] = "ollama"
+            info["apple_silicon"] = True
+            info["details"] = "Apple Silicon (Metal via Ollama)"
+            try:
+                r = requests.get(
+                    f"{self.org.config.ollama_base_url}/api/tags", timeout=5
+                )
+                if r.status_code == 200:
+                    info["ollama_connected"] = True
+            except Exception:
+                info["ollama_connected"] = False
         _json_response(self, info)
 
     def _serve_debug_graph(self) -> None:
