@@ -141,6 +141,38 @@ textarea{resize:vertical;min-height:60px;font-family:inherit}
 .paper-row .info h4{font-size:12.5px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .paper-row .info .sub{font-size:11px;color:var(--text3)}
 .concept-tag{display:inline-flex;align-items:center;gap:4px;background:rgba(192,132,252,.12);color:var(--purple);padding:2px 8px;border-radius:4px;font-size:11px;margin:2px}
+
+/* Pool */
+.pool-toolbar{display:flex;align-items:center;gap:12px;flex-shrink:0;padding:0 0 10px;flex-wrap:wrap}
+.pool-toolbar .stat{display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text3);background:var(--bg);padding:3px 10px;border-radius:12px;border:1px solid var(--border)}
+.pool-toolbar .stat strong{font-size:12px;color:var(--text)}
+.pool-subtabs{display:flex;gap:2px;margin-left:auto}
+.pool-subtab{padding:5px 12px;cursor:pointer;font-size:11px;font-weight:500;color:var(--text3);border-radius:5px;transition:all .15s;user-select:none}
+.pool-subtab:hover{color:var(--text2);background:var(--surface2)}
+.pool-subtab.active{color:var(--accent);background:rgba(96,165,250,.1)}
+.pool-topic{margin-bottom:16px}
+.pool-topic h3{font-size:13px;font-weight:600;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px}
+.pool-topic h3 .count{font-size:11px;font-weight:400;color:var(--text3)}
+.pool-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:12px;margin-bottom:8px;transition:border-color .15s}
+.pool-card:hover{border-color:var(--text3)}
+.pool-card .ptitle{font-size:12.5px;font-weight:600;color:var(--accent);margin-bottom:2px}
+.pool-card .pmeta{font-size:11px;color:var(--text3);margin-bottom:4px}
+.pool-card .pabs{font-size:11px;color:var(--text2);max-height:42px;overflow:hidden;cursor:pointer;transition:max-height .2s;line-height:1.5}
+.pool-card .pabs.expanded{max-height:500px}
+.pool-card .pactions{display:flex;gap:6px;margin-top:8px}
+.pool-card .pactions a{color:var(--accent);text-decoration:none;font-size:11px;padding:3px 8px;border-radius:4px;border:1px solid var(--border);transition:all .15s}
+.pool-card .pactions a:hover{background:var(--surface2)}
+.pool-list-table{width:100%;border-collapse:collapse;font-size:12px}
+.pool-list-table th,.pool-list-table td{padding:6px 10px;border-bottom:1px solid var(--border);text-align:left}
+.pool-list-table th{color:var(--text3);font-size:10px;text-transform:uppercase;letter-spacing:.5px;font-weight:600}
+.pool-list-table tr:hover td{background:var(--surface2)}
+.pool-new-badge{display:inline-block;background:rgba(251,191,36,.15);color:var(--yellow);font-size:9px;padding:1px 5px;border-radius:3px;font-weight:600;margin-left:4px}
+.pool-tag{display:inline-block;background:var(--surface2);color:var(--text2);padding:1px 6px;border-radius:4px;font-size:10px;margin:1px}
+.pool-imported{color:var(--green);font-size:11px}
+.pool-spinner{display:inline-block;width:12px;height:12px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .6s linear infinite;vertical-align:middle}
+@keyframes spin{to{transform:rotate(360deg)}}
+#poolGraphWrap{flex:1;min-height:300px;background:var(--bg);border-radius:var(--radius);border:1px solid var(--border);overflow:hidden;position:relative}
+#poolGraphWrap svg{width:100%;height:100%;display:block}
 </style>
 </head>
 <body>
@@ -164,6 +196,9 @@ textarea{resize:vertical;min-height:60px;font-family:inherit}
   </div>
   <div class="nav-item" data-panel="browse" onclick="switchPanel('browse')">
     &#x2630;<span class="tip">Browse</span>
+  </div>
+  <div class="nav-item" data-panel="pool" onclick="switchPanel('pool')">
+    &#x25E2;<span class="tip">Pool</span>
   </div>
   <div class="nav-item" data-panel="similarity" onclick="switchPanel('similarity')">
     &#x2248;<span class="tip">Similarity</span>
@@ -239,6 +274,40 @@ textarea{resize:vertical;min-height:60px;font-family:inherit}
     </div>
     <div id="browsePapers" class="tab-content active"></div>
     <div id="browseConcepts" class="tab-content"></div>
+  </div>
+</div>
+
+<!-- ── Pool Panel ── -->
+<div class="panel" id="panel-pool">
+  <div class="panel-header"><h2>Research Pool <span class="badge" id="poolBadge">observatory</span></h2></div>
+  <div class="panel-body" style="padding-top:8px">
+    <div class="pool-toolbar">
+      <div class="stat">Observed: <strong id="poolTotal">0</strong></div>
+      <div class="stat">Imported: <strong id="poolImported" style="color:var(--green)">0</strong></div>
+      <div class="stat">New: <strong id="poolNew" style="color:var(--yellow)">0</strong></div>
+      <div class="pool-subtabs">
+        <div class="pool-subtab active" onclick="switchPoolTab('browse',this)">Browse</div>
+        <div class="pool-subtab" onclick="switchPoolTab('list',this)">List</div>
+        <div class="pool-subtab" onclick="switchPoolTab('graph',this)">Graph</div>
+        <div class="pool-subtab" onclick="switchPoolTab('topics',this)"><span style="font-size:14px">&#x2699;</span></div>
+      </div>
+    </div>
+    <div id="poolBrowse" style="flex:1;overflow-y:auto"></div>
+    <div id="poolList" style="flex:1;overflow-y:auto;display:none"></div>
+    <div id="poolGraph" style="flex:1;overflow:hidden;display:none;flex-direction:column">
+      <div id="poolGraphWrap"><svg></svg></div>
+    </div>
+    <div id="poolTopics" style="display:none;flex-direction:column;gap:12px;flex:1;overflow-y:auto">
+      <div class="card">
+        <div class="card-header">Add Topic</div>
+        <div class="btn-group" style="margin-bottom:6px">
+          <input id="poolTopicName" placeholder="Topic name" style="width:200px">
+          <input id="poolTopicQuery" placeholder="arXiv query" style="flex:1">
+        </div>
+        <button class="btn btn-sm" onclick="addPoolTopic()">+ Add Topic</button>
+      </div>
+      <div id="poolTopicList"></div>
+    </div>
   </div>
 </div>
 
@@ -324,6 +393,7 @@ function switchPanel(name){
   document.querySelector('.nav-item[data-panel="'+name+'"]').classList.add('active');
   if(name==='graph'&&gData.nodes)renderGraph(gData);
   if(name==='browse')loadBrowse();
+  if(name==='pool')loadPool();
   if(name==='about')loadAbout();
 }
 
@@ -594,9 +664,174 @@ async function loadAbout(){
   }catch(_){}
 }
 
+// ── Pool ──
+const POOL_TOPIC_COLORS=['#60a5fa','#34d399','#fbbf24','#f87171','#c084fc','#22d3ee','#fb923c','#a78bfa'];
+let poolSim=null;
+
+function poolTopicColor(topics){
+  if(!topics||!topics.length)return POOL_TOPIC_COLORS[0];
+  const ci=topics.reduce((a,t)=>a+t.length,0)%POOL_TOPIC_COLORS.length;
+  return POOL_TOPIC_COLORS[ci];
+}
+
+function switchPoolTab(tab,el_){
+  document.querySelectorAll('.pool-subtab').forEach(t=>t.classList.remove('active'));
+  el_.classList.add('active');
+  ['poolBrowse','poolList','poolGraph','poolTopics'].forEach(id=>{
+    const e=document.getElementById(id);
+    if(id==='poolG'+tab||id==='pool'+tab.charAt(0).toUpperCase()+tab.slice(1)){e.style.display='flex'}else{e.style.display='none'}
+  });
+  if(tab==='graph')loadPoolGraph();
+  if(tab==='list')loadPoolList();
+  if(tab==='topics')loadPoolTopics();
+}
+
+async function loadPool(){
+  try{
+    const data=await api('/api/pool');
+    renderPoolBrowse(data);
+    const n=Object.values(data).reduce((a,b)=>a+(b||[]).length,0);
+    el('poolBadge').textContent=n+' papers';
+  }catch(_){}
+}
+
+let _poolStore=[];
+
+function renderPoolBrowse(data){
+  const c=el('poolBrowse');
+  if(!data||!Object.keys(data).length){c.innerHTML='<div style="color:var(--text3);text-align:center;padding:40px"><div style="font-size:28px;margin-bottom:8px">&#x1F30A;</div>Pool is populating...<br><span style="font-size:11px">Background refresh runs every 12h. Papers appear after the first fetch.</span></div>';return}
+  c.innerHTML=Object.entries(data).map(([topic,papers])=>{
+    const col=poolTopicColor([topic]);
+    return '<div class="pool-topic"><h3><span style="width:8px;height:8px;border-radius:2px;background:'+col+';display:inline-block"></span>'+esc(topic)+' <span class="count">'+(papers||[]).length+' papers</span></h3>'+
+      (papers||[]).map(p=>{
+        const inStore=_poolStore.find(s=>s.arxiv_id===p.arxiv_id);
+        const imported=inStore&&inStore.imported;
+        const isNew=inStore&&inStore.is_new;
+        return '<div class="pool-card"><div class="ptitle">'+esc(p.title)+'</div>'+
+          '<div class="pmeta">'+esc(p.authors_str||(p.authors||[]).join(', '))+' &middot; '+p.published+(isNew?' <span class="pool-new-badge">NEW</span>':'')+'</div>'+
+          '<div class="pabs" onclick="this.classList.toggle(\'expanded\')">'+esc(p.abstract||'')+'</div>'+
+          '<div class="pactions">'+
+          '<a href="https://arxiv.org/abs/'+p.arxiv_id+'" target="_blank">arXiv</a>'+
+          '<a href="https://arxiv.org/pdf/'+p.arxiv_id+'" target="_blank">PDF</a>'+
+          (imported?'<span class="pool-imported">&#x2713; Imported</span>':'<a href="#" onclick="event.preventDefault();importPoolPaper(\''+p.arxiv_id+'\')">+ Add to KB</a>')+
+          '</div></div>';
+      }).join('')+'</div>';
+  }).join('');
+}
+
+async function loadPoolList(){
+  try{
+    const papers=await api('/api/pool/papers');
+    _poolStore=papers;
+    updatePoolStats(papers);
+    const c=el('poolList');
+    if(!papers||!papers.length){c.innerHTML='<div style="color:var(--text3);text-align:center;padding:20px">No observed papers yet</div>';return}
+    c.innerHTML='<table class="pool-list-table"><thead><tr><th>Title</th><th>Topics</th><th>Published</th><th>Status</th></tr></thead><tbody>'+
+      papers.map(p=>'<tr><td>'+esc(p.title.substring(0,60))+(p.is_new?' <span class="pool-new-badge">NEW</span>':'')+'</td>'+
+        '<td>'+(p.topics||[]).map(t=>'<span class="pool-tag">'+esc(t)+'</span>').join('')+'</td>'+
+        '<td style="font-size:11px;color:var(--text3)">'+p.published+'</td>'+
+        '<td>'+(p.imported?'<span class="pool-imported">&#x2713; Imported</span>':'<a href="#" onclick="event.preventDefault();importPoolPaper(\''+p.arxiv_id+'\')">Import</a>')+'</td></tr>').join('')+
+      '</tbody></table>';
+  }catch(_){}
+}
+
+function updatePoolStats(papers){
+  el('poolTotal').textContent=papers.length;
+  el('poolImported').textContent=papers.filter(p=>p.imported).length;
+  el('poolNew').textContent=papers.filter(p=>p.is_new).length;
+  el('poolBadge').textContent=papers.length+' observed';
+}
+
+async function importPoolPaper(aid){
+  try{
+    const r=await api('/api/pool/import','POST',{arxiv_id:aid});
+    if(r.status==='added'||r.status==='exists'){
+      loadPoolList();
+      loadPoolGraph();
+      refreshAll();
+    }
+  }catch(_){}
+}
+
+// ── Pool Graph (D3) ──
+async function loadPoolGraph(){
+  try{
+    const data=await api('/api/pool/graph');
+    renderPoolGraph(data);
+  }catch(_){}
+}
+
+function renderPoolGraph(data){
+  const svg=d3.select('#poolGraphWrap svg');
+  svg.selectAll('*').remove();
+  const rect=document.getElementById('poolGraphWrap').getBoundingClientRect();
+  const W=rect.width||800,H=Math.max(rect.height,300);
+  svg.attr('viewBox',[0,0,W,H]);
+  if(!data.nodes||!data.nodes.length){svg.append('text').attr('x',W/2).attr('y',H/2).attr('text-anchor','middle').attr('fill','var(--text3)').attr('font-size','13px').text('No pool graph data');return}
+
+  const links=data.edges.map(d=>({...d}));
+  const nodes=data.nodes.map(d=>({...d}));
+
+  const sim=d3.forceSimulation(nodes)
+    .force('link',d3.forceLink(links).id(d=>d.id).distance(120).strength(l=>l.similarity*2))
+    .force('charge',d3.forceManyBody().strength(-200))
+    .force('center',d3.forceCenter(W/2,H/2))
+    .force('collision',d3.forceCollide(35));
+
+  const link=svg.append('g').selectAll('line').data(links).join('line')
+    .attr('stroke','var(--border)').attr('stroke-width',l=>Math.max(.5,l.similarity*4)).attr('stroke-opacity',l=>Math.min(.8,.3+l.similarity));
+
+  const node=svg.append('g').selectAll('g').data(nodes).join('g')
+    .call(d3.drag().on('start',(e,d)=>{if(!e.active)sim.alphaTarget(.3).restart();d.fx=d.x;d.fy=d.y})
+      .on('drag',(e,d)=>{d.fx=e.x;d.fy=e.y})
+      .on('end',(e,d)=>{if(!e.active)sim.alphaTarget(0);d.fx=null;d.fy=null}));
+
+  node.append('rect').attr('width',10).attr('height',10).attr('x',-5).attr('y',-5).attr('rx',2)
+    .attr('fill',d=>poolTopicColor(d.topics))
+    .attr('stroke','rgba(255,255,255,.15)').attr('stroke-width',1.5);
+
+  node.filter(d=>d.is_new).append('text').text('!').attr('x',-5).attr('y',-8).attr('font-size','9px').attr('fill','var(--yellow)').attr('font-weight','700');
+
+  node.append('text').text(d=>d.label?.substring(0,22)).attr('font-size','9px').attr('dx',12).attr('dy',3.5).attr('fill','var(--text2)');
+
+  node.append('title').text(d=>d.label+(d.imported?' [Imported]':' [New]')+'\nTopics: '+(d.topics||[]).join(', '));
+
+  sim.on('tick',()=>{
+    link.attr('x1',d=>d.source.x).attr('y1',d=>d.source.y).attr('x2',d=>d.target.x).attr('y2',d=>d.target.y);
+    node.attr('transform',d=>'translate('+d.x+','+d.y+')');
+  });
+}
+
+// ── Pool Topics ──
+async function loadPoolTopics(){
+  try{
+    const r=await api('/api/pool/topics');
+    const topics=r.topics||[];
+    const c=el('poolTopicList');
+    if(!topics.length){c.innerHTML='<div style="color:var(--text3);text-align:center;padding:20px">No topics configured</div>';return}
+    c.innerHTML=topics.map(t=>'<div class="paper-row"><div class="info"><h4>'+esc(t.name)+'</h4><div class="sub">arXiv query: '+esc(t.query)+'</div></div>'+
+      '<button class="btn btn-sm btn-outline" onclick="removePoolTopic(\''+esc(t.name).replace(/'/g,"\\'")+'\')">Remove</button></div>').join('');
+  }catch(_){}
+}
+
+async function addPoolTopic(){
+  const name=el('poolTopicName').value.trim();
+  const query=el('poolTopicQuery').value.trim();
+  if(!name||!query)return;
+  await api('/api/pool/topics/add','POST',{name,query});
+  el('poolTopicName').value='';el('poolTopicQuery').value='';
+  loadPoolTopics();
+}
+
+async function removePoolTopic(name){
+  if(!confirm('Remove topic "'+name+'"?'))return;
+  await api('/api/pool/topics/remove','POST',{name});
+  loadPoolTopics();
+}
+
 // ── Refresh ──
 async function refreshAll(){
-  await Promise.all([loadHeaderStats(),loadGraph(),loadGpuStatus()]);
+  await Promise.all([loadHeaderStats(),loadGraph(),loadGpuStatus(),loadPoolList()]);
 }
 
 async function loadGraph(){
@@ -610,6 +845,7 @@ async function loadGraph(){
 loadGpuStatus();
 loadHeaderStats();
 loadGraph();
+loadPoolList();
 </script>
 </body>
 </html>

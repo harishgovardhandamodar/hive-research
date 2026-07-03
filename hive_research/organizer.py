@@ -8,6 +8,7 @@ from .config import Config
 from .graph import KnowledgeGraph
 from .llm import LLMInterface
 from .pipeline import PaperPipeline
+from .pool import ResearchPool
 from .rag import RAGEngine
 from .similarity import paper_similarity_matrix
 
@@ -21,6 +22,7 @@ class Organizer:
         self.kg = KnowledgeGraph(config)
         self.pipeline = PaperPipeline(config, self.llm, self.kg)
         self.rag = RAGEngine(config, self.llm, self.kg)
+        self.pool = ResearchPool(config.root_dir / "pool")
 
     def add_by_id(self, arxiv_id: str) -> dict[str, Any]:
         paper = fetch_by_id(arxiv_id)

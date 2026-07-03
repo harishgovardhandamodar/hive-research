@@ -86,6 +86,18 @@ class RouteHandler(BaseHTTPRequestHandler):
             self._handle_ollama_status()
         elif path == "/api/gpu":
             self._handle_gpu_status()
+        elif path == "/api/pool":
+            data = self.org.pool.get()
+            _json_response(self, data)
+        elif path == "/api/pool/papers":
+            papers = self.org.pool.get_observed_papers()
+            _json_response(self, papers)
+        elif path == "/api/pool/graph":
+            graph = self.org.pool.get_pool_graph()
+            _json_response(self, graph)
+        elif path == "/api/pool/topics":
+            topics = self.org.pool.get_topics()
+            _json_response(self, {"topics": topics})
         else:
             _json_response(self, {"error": "not found"}, 404)
 
@@ -177,6 +189,30 @@ class RouteHandler(BaseHTTPRequestHandler):
                 _json_response(self, {"error": "missing question"}, 400)
                 return
             result = self.org.query_rag(question)
+            _json_response(self, result)
+        elif path == "/api/pool/topics/add":
+            name = data.get("name", "")
+            query = data.get("query", "")
+            if not name or not query:
+                _json_response(self, {"error": "missing name or query"}, 400)
+                return
+            self.org.pool.add_topic(name, query)
+            _json_response(self, {"status": "ok"})
+        elif path == "/api/pool/topics/remove":
+            name = data.get("name", "")
+            if not name:
+                _json_response(self, {"error": "missing name"}, 400)
+                return
+            self.org.pool.remove_topic(name)
+            _json_response(self, {"status": "ok"})
+        elif path == "/api/pool/import":
+            arxiv_id = data.get("arxiv_id", "")
+            if not arxiv_id:
+                _json_response(self, {"error": "missing arxiv_id"}, 400)
+                return
+            result = self.org.add_by_id(arxiv_id)
+            if result.get("status") == "added" or result.get("status") == "exists":
+                self.org.pool.mark_imported(arxiv_id)
             _json_response(self, result)
         else:
             _json_response(self, {"error": "not found"}, 404)
