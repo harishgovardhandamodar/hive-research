@@ -66,7 +66,7 @@ class PaperPipeline:
                 cid = matched.id
             else:
                 cid = tag_id
-                self.kg.add_concept(cid, tag, concept_type="tag")
+                self.kg.add_concept(cid, tag, definition=f"A paper tagged with '{tag}'.", concept_type="tag")
             self.kg.add_edge(paper_id, cid, "related_to")
 
         for c in concepts:
@@ -74,14 +74,17 @@ class PaperPipeline:
             if not cid:
                 continue
             label = c.get("name", c.get("label", cid))
+            definition = c.get("definition", "")
             matched = self.kg.find_similar_concept(label)
             if matched:
                 cid = matched.id
+                if definition and not matched.definition:
+                    matched.definition = definition
             else:
                 self.kg.add_concept(
                     cid,
                     label,
-                    definition=c.get("definition", ""),
+                    definition=definition,
                     concept_type=c.get("type", "concept"),
                 )
             rel = c.get("relation", "related_to")

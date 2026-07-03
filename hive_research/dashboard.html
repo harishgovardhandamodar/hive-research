@@ -494,11 +494,11 @@ function renderGraph(data){
     .attr('r',7).attr('fill','#c084fc').attr('stroke','rgba(192,132,252,.5)').attr('stroke-width',2);
   node.append('text').text(d=>d.label?.substring(0,25)).attr('font-size','10px').attr('dx',14).attr('dy',4).attr('fill','#94a3b8');
   node.on('mouseenter',function(e,d){
-    tooltip.style('opacity',1).html(
-      '<b>'+esc(d.label)+'</b>'+(d.type?' <span style="color:#94a3b8">('+d.type+')</span>':'')+
-      (d.abstract?'<br>'+esc(d.abstract.substring(0,250)):'')+
-      (d.definition?'<br><i>'+esc(d.definition)+'</i>':'')
-    );
+    let tip = '<b>'+esc(d.label)+'</b>'+(d.type?' <span style="color:#94a3b8">('+d.type+')</span>':'');
+    if(d.abstract) tip += '<br>'+esc(d.abstract.substring(0,250));
+    else if(d.definition) tip += '<br><i>'+esc(d.definition)+'</i>';
+    else if(d.type==='concept') tip += '<br><span style="color:#64748b">Extracted concept</span>';
+    tooltip.style('opacity',1).html(tip);
     d3.select(this).select('rect,circle').attr('stroke-width',3);
     link.attr('stroke-opacity',l=>l.source.id===d.id||l.target.id===d.id?0.5:0.05);
     node.attr('opacity',n=>n.id===d.id||links.some(l=>(l.source.id===d.id&&l.target.id===n.id)||(l.target.id===d.id&&l.source.id===n.id))?1:.2);
