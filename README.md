@@ -2,7 +2,7 @@
 
 Lightweight research knowledge base for **Apple Silicon** using **Ollama** local LLMs and the **Hive** datatype for knowledge graphs.
 
-Born from [KG-HD-Research](https://github.com/anomalyco/KG-HD-Research) — a streamlined, zero-Docker version focused on Apple Metal acceleration.
+Born from [KG-HD-Research](https://github.com/anomalyco/KG-HD-Research) — streamlined, zero-Docker version focused on Apple Metal acceleration. Optionally deployable via Docker for ARM64.
 
 ## Features
 
@@ -10,21 +10,28 @@ Born from [KG-HD-Research](https://github.com/anomalyco/KG-HD-Research) — a st
 - **LLM Analysis** — extracts tags, concepts, relations, and summaries via Ollama (two-model pipeline: fast + main)
 - **Knowledge Graph** — typed directed multigraph using [hive-datatype](https://github.com/anomalyco/hive-datatype) (`paper`, `concept` nodes; 11 relation types)
 - **RAG** — local embedding search (Ollama `nomic-embed-text` + numpy cosine similarity) with LLM answer generation and source citations
-- **Web Dashboard** — D3.js force-directed graph, arXiv search, paper browser, similarity matrix, RAG chat, Apple Silicon GPU monitoring
+- **Research Pool** — arXiv topic observatory with 8 default topics, background refresh every 12h, observed/imported paper tracking, Jaccard similarity graph
+- **Web Dashboard** — D3.js force-directed graph, arXiv search, paper browser, similarity matrix, RAG chat, pool browse/list/graph views, Apple Silicon GPU monitoring, persistent activity log
 - **Obsidian Export** — per-paper markdown notes with YAML frontmatter
 
 ## Architecture
 
 ```
-                            ┌─────────────┐
-                            │   Ollama     │
-                            │ (localhost)  │
-                            └──────┬──────┘
-                                   │
+                             ┌─────────────┐
+                             │   Ollama     │
+                             │ (localhost)  │
+                             └──────┬──────┘
+                                    │
 ┌──────────┐  ┌──────────┐  ┌──────┴──────┐  ┌──────────┐  ┌──────────┐
 │  arXiv    │  │  PyMuPDF │  │     LLM     │  │   Hive   │  │   RAG    │
 │  Fetcher  │─▶│  Parser  │─▶│  Interface  │─▶│  Graph   │─▶│  Engine  │
-└──────────┘  └──────────┘  └─────────────┘  └──────────┘  └──────────┘
+└──────────┘  └──────────┘  └─────────────┘  └──────┬───┘  └──────────┘
+                                                    │
+                                           ┌────────┴────────┐
+                                           │    Research      │
+                                           │      Pool        │
+                                           │ (SQLite + arXiv) │
+                                           └────────┬────────┘
                                                     │
                                               ┌─────┴─────┐
                                               │  Server   │
@@ -41,6 +48,8 @@ Born from [KG-HD-Research](https://github.com/anomalyco/KG-HD-Research) — a st
 
 ## Installation
 
+### Native (macOS/Linux)
+
 ```bash
 git clone https://github.com/your-org/hive-research.git
 cd hive-research
@@ -49,15 +58,34 @@ pip install -e .
 
 The project depends on [hive-datatype](https://github.com/anomalyco/hive-datatype) which is auto-discovered from `../hive-datatype` relative to the project root.
 
+### Docker (Apple Silicon ARM64)
+
+```bash
+docker compose up --build
+# Open http://127.0.0.1:7777
+```
+
+This builds a `linux/arm64` image, connects to Ollama on the host via `host.docker.internal:11434`, and persists data in a Docker volume.
+
+Override models:
+
+```bash
+OLLAMA_MODEL=gemma4:31b-mlx docker compose up --build
+```
+
 ## Configuration
 
 Edit `config.yaml`:
 
 ```yaml
+server:
+  host: 127.0.0.1
+  port: 7777
+
 ollama:
   base_url: http://localhost:11434
-  model: qwen3.6:35b-mlx       # main model for concept extraction
-  fast_model: llama3.2:3b      # fast model for tag extraction
+  model: llama3.2:3b          # main model for concept extraction
+  fast_model: llama3.2:3b     # fast model for tag extraction
   embed_model: nomic-embed-text # embedding model for RAG
 ```
 
@@ -104,12 +132,14 @@ python -m hive_research serve --port 7777
 | Panel | Description |
 |---|---|
 | **Graph** | D3 force-directed knowledge graph — drag nodes, hover for tooltips, filter bar |
-| **Add** | Add papers by arXiv ID/URL with activity log |
+| **Add** | Add papers by arXiv ID/URL with live activity log |
 | **Search** | Search arXiv, browse results, bulk import |
 | **Browse** | Browse ingested papers and extracted concepts |
+| **Pool** | Research observatory — Browse (topic feed), List (observed papers table), Graph (Jaccard similarity D3), Settings (topic CRUD) |
 | **Similarity** | Jaccard paper-paper similarity matrix |
 | **Chat** | RAG question-answering with source citations |
 | **About** | System info, Ollama status, Apple Silicon GPU detection |
+| **Activity Log** | Persistent bottom bar showing server logs in real-time (collapsible) |
 
 ## API Endpoints
 
@@ -122,19 +152,29 @@ python -m hive_research serve --port 7777
 | GET | `/api/similarity` | Paper-pair similarity matrix |
 | GET | `/api/ollama` | Ollama connection & model availability |
 | GET | `/api/gpu` | Apple Silicon / Metal GPU detection |
+| GET | `/api/logs` | Recent server log entries |
+| GET | `/api/pool` | arXiv feed grouped by topic |
+| GET | `/api/pool/papers` | Observed papers with import status |
+| GET | `/api/pool/graph` | Jaccard similarity graph of pool papers |
+| GET | `/api/pool/topics` | List configured topics |
 | POST | `/api/add` | Add paper by `{id: "arxiv_id"}` |
 | POST | `/api/search` | Search arXiv `{query: "..."}` |
 | POST | `/api/import` | Search + import all `{query: "..."}` |
 | POST | `/api/query` | RAG question `{question: "..."}` |
+| POST | `/api/pool/topics/add` | Add topic `{name, query}` |
+| POST | `/api/pool/topics/remove` | Remove topic `{name}` |
+| POST | `/api/pool/import` | Import pool paper `{arxiv_id}` |
 
 ## Project Structure
 
 ```
 hive-research/
+├── Dockerfile                          # Multi-stage ARM64 Docker build
+├── docker-compose.yml                  # Apple Silicon Docker Compose
 ├── config.yaml                         # Configuration
 ├── pyproject.toml                      # Package metadata
 ├── hive_research/
-│   ├── __init__.py                     # Package init + hive-datatype path
+│   ├── __init__.py                     # Package init + hive-datatype resolution
 │   ├── __main__.py                     # CLI entry point
 │   ├── config.py                       # Config loader (YAML + env vars)
 │   ├── arxiv_fetcher.py               # arXiv API client
@@ -144,6 +184,8 @@ hive-research/
 │   ├── pipeline.py                     # LLM analysis → graph → notes
 │   ├── similarity.py                   # Jaccard paper similarity
 │   ├── rag.py                          # Local RAG engine
+│   ├── pool.py                         # Research Pool (SQLite-backed)
+│   ├── logs.py                         # LogCapture handler for dashboard
 │   ├── organizer.py                    # Central orchestrator
 │   ├── server.py                       # HTTP server + REST API
 │   ├── dashboard.html                  # Web dashboard
@@ -154,8 +196,19 @@ hive-research/
     ├── papers/                         # Downloaded PDFs
     ├── graph/                          # Knowledge graph JSON
     ├── vault/                          # Markdown notes
-    └── rag/                            # Embedding index
+    ├── rag/                            # Embedding index
+    └── pool/                           # SQLite database (pool.db)
 ```
+
+## Research Pool
+
+The pool is a topic-based arXiv observatory that continuously discovers papers:
+
+- **8 default topics**: Knowledge graphs, Federated learning, AI security, LLM security, AI alignment, Adversarial ML, Graph neural networks, Vision-language models
+- **Background refresh**: Daemon thread fetches arXiv for all topics every 12 hours (staggered 4s between topics to avoid rate limits)
+- **Local SQLite storage**: All observed papers, topic configs, and feed cache stored in `pool.db`
+- **Import tracking**: Papers tracked with `imported` status; "Add to KB" imports into the knowledge graph
+- **Pool graph**: Jaccard similarity edges (threshold ≥ 0.12) between papers, colored by topic in D3
 
 ## Benchmarks
 
