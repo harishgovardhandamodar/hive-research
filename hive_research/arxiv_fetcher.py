@@ -27,8 +27,13 @@ class PaperInfo:
         self.entry_id: str = result.entry_id
         self.arxiv_id: str = result.get_short_id()
         self.title: str = result.title
-        self.authors: list[str] = [a.name for a in result.authors]
-        self.authors_str: str = ", ".join(self.authors)
+        self.authors: list[dict[str, Any]] = [
+            {"name": a.name, "affiliations": a.affiliation} for a in result.authors
+        ]
+        self.authors_str: str = ", ".join(a["name"] for a in self.authors)
+        self.affiliations_str: str = "; ".join(
+            ", ".join(a["affiliations"]) for a in self.authors if a["affiliations"]
+        )
         self.abstract: str = result.summary
         self.published: str = result.published.strftime("%Y-%m-%d") if result.published else ""
         self.updated: str = result.updated.strftime("%Y-%m-%d") if result.updated else ""

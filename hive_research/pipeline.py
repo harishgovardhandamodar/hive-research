@@ -43,6 +43,7 @@ class PaperPipeline:
             published=paper.published,
             abstract=paper.abstract,
             categories=paper.categories,
+            affiliations=paper.affiliations_str,
         )
 
         pdf_text = ""
@@ -143,6 +144,7 @@ class PaperPipeline:
                 published=prior.published,
                 abstract=prior.abstract,
                 categories=prior.categories,
+                affiliations=prior.affiliations_str,
             )
             self.kg.add_edge(paper_id, aid, "cites")
             fetched.append({"arxiv_id": aid, "title": prior.title[:80], "status": "added"})

@@ -75,8 +75,16 @@ class RouteHandler(BaseHTTPRequestHandler):
             _json_response(self, self.org.similarity())
         elif path == "/api/papers":
             papers = [
-                {"id": n.id, "title": n.label, "authors": n.authors, "published": n.published}
+                {"id": n.id, "title": n.label, "authors": n.authors, "published": n.published, "affiliations": n.affiliations}
                 for n in self.org.kg.papers
+            ]
+            _json_response(self, papers)
+        elif path == "/api/papers/search":
+            q = params.get("q", "").lower()
+            papers = [
+                {"id": n.id, "title": n.label, "authors": n.authors, "published": n.published, "affiliations": n.affiliations}
+                for n in self.org.kg.papers
+                if not q or q in n.label.lower() or q in n.authors.lower() or q in n.affiliations.lower()
             ]
             _json_response(self, papers)
         elif path == "/api/concepts":

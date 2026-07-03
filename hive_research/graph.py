@@ -58,9 +58,13 @@ class KnowledgeGraph:
         published: str = "",
         abstract: str = "",
         categories: list[str] | None = None,
+        affiliations: str = "",
     ) -> Node:
         existing = self._hive.get_node(paper_id)
         if existing:
+            if affiliations and not existing.affiliations:
+                existing.affiliations = affiliations
+                self.save()
             return existing
         node = Node(
             id=paper_id,
@@ -72,6 +76,7 @@ class KnowledgeGraph:
             published=published,
             abstract=abstract,
             categories=categories or [],
+            affiliations=affiliations,
         )
         self._hive.nodes.append(node)
         return node
