@@ -60,6 +60,13 @@ class PaperPipeline:
         relations = analysis.get("relations", [])
         summary = analysis.get("summary", "")
         tags = analysis.get("tags", [])
+        notes = analysis.get("notes", "")
+        experiment = analysis.get("experiment", {})
+        results = analysis.get("results", {})
+
+        import json as _json
+        extra = _json.dumps({"notes": notes, "experiment": experiment, "results": results})
+        node.definition = extra[:2000]
 
         for tag in tags:
             tag_id = _sanitize_id(tag)
@@ -102,7 +109,7 @@ class PaperPipeline:
                 if src and tgt:
                     self.kg.add_edge(src, tgt, rel)
 
-        note_path = self._write_note(paper_id, paper, summary, tags, concepts)
+        note_path = self._write_note(paper_id, paper, summary, tags, concepts, notes, experiment, results)
         self.kg.save()
 
         result = {
@@ -112,6 +119,9 @@ class PaperPipeline:
             "tags": len(tags),
             "relations": len(relations),
             "note_path": str(note_path) if note_path else None,
+            "has_notes": bool(notes),
+            "has_experiment": bool(experiment and isinstance(experiment, dict) and any(v for v in experiment.values())),
+            "has_results": bool(results and isinstance(results, dict) and any(v for v in results.values())),
         }
 
         if pdf_text:
@@ -191,6 +201,9 @@ class PaperPipeline:
             "Extract the following as JSON. Do NOT include markdown formatting.\n"
             "{\n"
             '  "summary": "2-3 sentence summary",\n'
+            '  "notes": "3-5 key technical insights or observations",\n'
+            '  "experiment": {"methodology": "...", "dataset": "...", "setup": "..."},\n'
+            '  "results": {"main_findings": "...", "metrics": {"metric_name": "value"}},\n'
             '  "concepts": [{"name": "...", "definition": "...", "relation": "introduces|uses|proposes|related_to"}],\n'
             '  "relations": [{"source": "...", "target": "...", "relation": "..."}]\n'
             "}"
@@ -206,6 +219,9 @@ class PaperPipeline:
         summary: str,
         tags: list[str],
         concepts: list[dict[str, Any]],
+        notes: str = "",
+        experiment: dict[str, Any] | None = None,
+        results: dict[str, Any] | None = None,
     ) -> Path | None:
         vault = Path(self.config.vault_dir)
         vault.mkdir(parents=True, exist_ok=True)
@@ -223,6 +239,28 @@ class PaperPipeline:
         ]
         if summary:
             lines.extend(["## Summary", "", summary, ""])
+        if notes:
+            lines.extend(["## Notes", "", notes, ""])
+        if experiment and isinstance(experiment, dict):
+            exp = {k: v for k, v in experiment.items() if v}
+            if exp:
+                lines.extend(["## Experiment", ""])
+                for k, v in exp.items():
+                    lines.append(f"- **{k.capitalize()}**: {v}")
+                lines.append("")
+        if results and isinstance(results, dict):
+            res_parts = []
+            if results.get("main_findings"):
+                res_parts.append(results["main_findings"])
+            if results.get("metrics") and isinstance(results["metrics"], dict):
+                metrics_str = "; ".join(f"{k}: {v}" for k, v in results["metrics"].items() if v)
+                if metrics_str:
+                    res_parts.append(f"Metrics: {metrics_str}")
+            if res_parts:
+                lines.extend(["## Results", ""])
+                for part in res_parts:
+                    lines.append(part)
+                lines.append("")
         if concepts:
             lines.extend(["## Concepts", ""])
             for c in concepts:

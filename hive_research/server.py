@@ -93,6 +93,14 @@ class RouteHandler(BaseHTTPRequestHandler):
                 for n in self.org.kg.concepts
             ]
             _json_response(self, concepts)
+        elif path == "/api/web/list":
+            from hive_datatype import NodeType
+            web_nodes = [
+                {"id": n.id, "title": n.label, "url": next((l.split("URL:")[1].strip() for l in (n.definition or "").split("\n") if l.startswith("URL:")), ""), "summary": n.abstract[:200]}
+                for n in self.org.kg._hive.nodes
+                if n.type == "web"
+            ]
+            _json_response(self, web_nodes)
         elif path == "/api/ollama":
             self._handle_ollama_status()
         elif path == "/api/gpu":
@@ -275,6 +283,13 @@ info.textContent += ' | OK';
                 _json_response(self, {"error": "missing arxiv_id"}, 400)
                 return
             result = self.org.fetch_lineage(arxiv_id)
+            _json_response(self, result)
+        elif path == "/api/web/add":
+            url = data.get("url", params.get("url", ""))
+            if not url:
+                _json_response(self, {"error": "missing url"}, 400)
+                return
+            result = self.org.web.ingest(url)
             _json_response(self, result)
         elif path == "/api/definitions":
             result = self.org.generate_definitions()

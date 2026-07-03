@@ -103,6 +103,7 @@ textarea{resize:vertical;min-height:60px;font-family:inherit}
 #graphLegend .sw{width:8px;height:8px;border-radius:2px}
 #graphLegend .sw.cir{border-radius:50%}
 #tooltip{position:absolute;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-size:11px;max-width:320px;pointer-events:none;opacity:0;transition:opacity .15s;z-index:50;box-shadow:var(--shadow);line-height:1.5}
+#nodePreview{position:absolute;top:10px;right:10px;width:340px;max-height:calc(100% - 60px);background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px;overflow-y:auto;z-index:20;box-shadow:var(--shadow);font-size:12px;line-height:1.6;display:none}
 
 .result-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:12px;cursor:pointer;transition:all .15s}
 .result-card:hover{border-color:var(--text3)}
@@ -153,6 +154,12 @@ textarea{resize:vertical;min-height:60px;font-family:inherit}
 .paper-row .info .sub{font-size:11px;color:var(--text3)}
 .concept-tag{display:inline-flex;align-items:center;gap:4px;background:rgba(192,132,252,.12);color:var(--purple);padding:2px 8px;border-radius:4px;font-size:11px;margin:2px}
 .lineage-btn{flex-shrink:0;margin-left:auto;font-size:10px!important}
+.web-list-item{display:flex;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);gap:8px;cursor:pointer;transition:background .15s}
+.web-list-item:hover{background:var(--surface2);margin:0 -8px;padding:8px}
+.web-list-item:last-child{border-bottom:none}
+.web-list-item .wli-info{flex:1;min-width:0}
+.web-list-item .wli-info h4{font-size:12px;font-weight:600;color:var(--accent);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.web-list-item .wli-info .sub{font-size:10px;color:var(--text3)}
 
 /* Pool */
 .pool-toolbar{display:flex;align-items:center;gap:12px;flex-shrink:0;padding:0 0 10px;flex-wrap:wrap}
@@ -201,6 +208,7 @@ textarea{resize:vertical;min-height:60px;font-family:inherit}
 .log-bar-content .l.DEBUG{color:var(--text3)}
 .log-bar-content .l.DONE{color:var(--green)}
 .log-bar-content .l.INPROGRESS{color:var(--accent)}
+.log-bar-content .l.INPROGRESS{color:var(--accent)}
 </style>
 </head>
 <body>
@@ -217,6 +225,7 @@ textarea{resize:vertical;min-height:60px;font-family:inherit}
   <div class="nav-item active" data-panel="pool" onclick="switchPanel('pool')">&#x25E2;<span class="tip">Pool</span></div>
   <div class="nav-item" data-panel="graph" onclick="switchPanel('graph')">&#x25E1;<span class="tip">Graph</span></div>
   <div class="nav-item" data-panel="add" onclick="switchPanel('add')">&#x271A;<span class="tip">Add Paper</span></div>
+  <div class="nav-item" data-panel="web" onclick="switchPanel('web')">&#x1F310;<span class="tip">Web Link</span></div>
   <div class="nav-item" data-panel="search" onclick="switchPanel('search')">&#x2315;<span class="tip">Search</span></div>
   <div class="nav-item" data-panel="browse" onclick="switchPanel('browse')">&#x2630;<span class="tip">Browse</span></div>
   <div class="nav-item" data-panel="similarity" onclick="switchPanel('similarity')">&#x2248;<span class="tip">Similarity</span></div>
@@ -238,6 +247,7 @@ textarea{resize:vertical;min-height:60px;font-family:inherit}
       <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:end">
         <div><label style="font-size:10px;color:var(--text3);display:block;margin-bottom:2px">Paper color</label><input type="color" id="gcPaperColor" value="#60a5fa" onchange="applyGraphStyle()" style="width:40px;height:28px;padding:2px;border-radius:4px"></div>
         <div><label style="font-size:10px;color:var(--text3);display:block;margin-bottom:2px">Lineage color</label><input type="color" id="gcLineageColor" value="#2dd4bf" onchange="applyGraphStyle()" style="width:40px;height:28px;padding:2px;border-radius:4px"></div>
+        <div><label style="font-size:10px;color:var(--text3);display:block;margin-bottom:2px">Web color</label><input type="color" id="gcWebColor" value="#fb923c" onchange="applyGraphStyle()" style="width:40px;height:28px;padding:2px;border-radius:4px"></div>
         <div><label style="font-size:10px;color:var(--text3);display:block;margin-bottom:2px">Concept color</label><input type="color" id="gcConceptColor" value="#c084fc" onchange="applyGraphStyle()" style="width:40px;height:28px;padding:2px;border-radius:4px"></div>
         <div><label style="font-size:10px;color:var(--text3);display:block;margin-bottom:2px">Edge color</label><input type="color" id="gcEdgeColor" value="#1e3a5f" onchange="applyGraphStyle()" style="width:40px;height:28px;padding:2px;border-radius:4px"></div>
         <div><label style="font-size:10px;color:var(--text3);display:block;margin-bottom:2px">Cite color</label><input type="color" id="gcCiteColor" value="#34d399" onchange="applyGraphStyle()" style="width:40px;height:28px;padding:2px;border-radius:4px"></div>
@@ -246,13 +256,23 @@ textarea{resize:vertical;min-height:60px;font-family:inherit}
         <button class="btn btn-sm" onclick="resetGraphStyle()" style="font-size:10px">Reset</button>
       </div>
     </div>
-    <div id="graphWrap">
-      <svg></svg>
-      <div id="graphEmpty"><div class="icon">&#x1F4DA;</div>No papers yet &mdash; add one to get started</div>
-      <input id="graphFilter" class="tab" placeholder="Filter nodes..." oninput="applyFilter(this.value)">
-      <div id="graphLegend"><div class="l"><div class="sw" style="background:var(--accent)"></div> Paper</div><div class="l"><div class="sw" style="background:#2dd4bf"></div> Lineage</div><div class="l"><div class="sw cir" style="background:var(--purple)"></div> Concept</div><div class="l" style="color:var(--green)">&#x2192; cites</div></div>
-      <div id="tooltip"></div>
-    </div>
+      <div id="graphWrap">
+        <svg></svg>
+        <div id="graphEmpty"><div class="icon">&#x1F4DA;</div>No papers yet &mdash; add one to get started</div>
+        <input id="graphFilter" class="tab" placeholder="Filter nodes..." oninput="applyFilter(this.value)">
+        <div id="graphLegend"><div class="l"><div class="sw" style="background:var(--accent)"></div> Paper</div><div class="l"><div class="sw" style="background:#2dd4bf"></div> Lineage</div><div class="l"><div class="sw" style="background:#fb923c"></div> Web</div><div class="l"><div class="sw cir" style="background:var(--purple)"></div> Concept</div><div class="l" style="color:var(--green)">&#x2192; cites</div></div>
+        <div id="tooltip"></div>
+        <div id="nodePreview">
+          <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:8px">
+            <div style="font-weight:600;font-size:13px;color:var(--accent);flex:1;word-break:break-word" id="previewTitle"></div>
+            <button onclick="closePreview()" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:16px;padding:0 0 0 8px">&#x2716;</button>
+          </div>
+          <div id="previewMeta" style="color:var(--text3);font-size:11px;margin-bottom:6px"></div>
+          <div id="previewAbstract" style="color:var(--text2);font-size:11px;margin-bottom:8px"></div>
+          <div id="previewActions" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px"></div>
+          <div id="previewMore" style="color:var(--text3);font-size:10px;border-top:1px solid var(--border);padding-top:6px"></div>
+        </div>
+      </div>
   </div>
 </div>
 
@@ -266,6 +286,27 @@ textarea{resize:vertical;min-height:60px;font-family:inherit}
         <input id="arxivInput" placeholder="e.g. 1706.03762 or https://arxiv.org/abs/..." onkeydown="if(event.key==='Enter')addPaper()">
       </div>
       <button class="btn" onclick="addPaper()">&#x271A; Add Paper</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Web Link Panel ── -->
+<div class="panel" id="panel-web">
+  <div class="panel-header"><h2>Web Link <span class="badge">Blog / Article</span></h2>
+    <button class="btn btn-sm btn-outline" onclick="loadWebList()" style="margin-left:auto;font-size:10px">&#x1F504; Refresh</button>
+  </div>
+  <div class="panel-body">
+    <div class="card">
+      <div class="card-header">Add New URL</div>
+      <div class="btn-group" style="margin-bottom:8px">
+        <input id="webUrlInput" placeholder="https://example.com/blog/..." onkeydown="if(event.key==='Enter')ingestWeb()">
+      </div>
+      <button class="btn" onclick="ingestWeb()">&#x1F310; Ingest Web Link</button>
+    </div>
+    <div id="webResult"></div>
+    <div class="card" style="flex:1;overflow-y:auto">
+      <div class="card-header">Ingested Articles</div>
+      <div id="webList"></div>
     </div>
   </div>
 </div>
@@ -395,9 +436,23 @@ textarea{resize:vertical;min-height:60px;font-family:inherit}
 
 <!-- ── Persistent Bottom Log Bar ── -->
 <div class="log-bar" id="logBar">
-  <div class="log-bar-header" onclick="toggleLogBar()">
-    <div class="ll">&#x2630; Activity Log <span class="count" id="logCount">0</span></div>
-    <span id="logToggle">&#x25B2;</span>
+  <div class="log-bar-header">
+    <div class="ll" onclick="toggleLogBar()" style="cursor:pointer">&#x2630; Activity Log <span class="count" id="logCount">0</span></div>
+    <div style="display:flex;gap:8px;align-items:center;font-size:10px;cursor:default" onclick="event.stopPropagation()">
+      <label style="cursor:pointer;display:flex;align-items:center;gap:2px;color:var(--accent)">
+        <input type="checkbox" id="logFilterInfo" checked onchange="applyLogFilter()" style="width:auto;margin:0">Info
+      </label>
+      <label style="cursor:pointer;display:flex;align-items:center;gap:2px;color:var(--green)">
+        <input type="checkbox" id="logFilterDone" checked onchange="applyLogFilter()" style="width:auto;margin:0">Done
+      </label>
+      <label style="cursor:pointer;display:flex;align-items:center;gap:2px;color:var(--yellow)">
+        <input type="checkbox" id="logFilterWarn" checked onchange="applyLogFilter()" style="width:auto;margin:0">Warn
+      </label>
+      <label style="cursor:pointer;display:flex;align-items:center;gap:2px;color:var(--red)">
+        <input type="checkbox" id="logFilterError" checked onchange="applyLogFilter()" style="width:auto;margin:0">Error
+      </label>
+      <span id="logToggle" onclick="toggleLogBar()" style="cursor:pointer;margin-left:4px">&#x25B2;</span>
+    </div>
   </div>
   <div class="log-bar-content" id="logContent"></div>
 </div>
@@ -424,12 +479,42 @@ async function api(path,method='GET',body=null){
 function esc(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML}
 
 // ── Log Viewer ──
+let _logFilters={INFO:true,DONE:true,WARN:true,ERROR:true};
+(function(){
+  try{const s=JSON.parse(localStorage.getItem('hive_log_filters'));if(s)Object.assign(_logFilters,s)}catch(_){}
+  const set=function(id,val){const e=document.getElementById(id);if(e)e.checked=val};
+  set('logFilterInfo',_logFilters.INFO);set('logFilterDone',_logFilters.DONE);
+  set('logFilterWarn',_logFilters.WARN);set('logFilterError',_logFilters.ERROR);
+})();
+function applyLogFilter(){
+  _logFilters.INFO=document.getElementById('logFilterInfo').checked;
+  _logFilters.DONE=document.getElementById('logFilterDone').checked;
+  _logFilters.WARN=document.getElementById('logFilterWarn').checked;
+  _logFilters.ERROR=document.getElementById('logFilterError').checked;
+  localStorage.setItem('hive_log_filters',JSON.stringify(_logFilters));
+  const c=el('logContent');if(!c)return;
+  Array.from(c.children).forEach(d=>{
+    const cls=d.className.replace('l ','');
+    d.style.display=_logFilters[cls]||cls==='INPROGRESS'?'':'none';
+  });
+}
+
+function logLevel(cls){
+  if(cls==='ERROR'||cls==='error')return 'ERROR';
+  if(cls==='WARN'||cls==='warn'||cls==='WARNING')return 'WARN';
+  if(cls==='DONE'||cls==='done')return 'DONE';
+  if(cls==='INPROGRESS'||cls==='inprogress')return 'INPROGRESS';
+  return 'INFO';
+}
 function addLog(msg,cls=''){
   const c=el('logContent');
   if(!c)return;
-  const d=document.createElement('div');d.className='l '+(cls||'INFO');d.textContent=msg;
+  const level=logLevel(cls);
+  const d=document.createElement('div');d.className='l '+level;d.textContent=msg;
+  d.style.display=_logFilters[level]||level==='INPROGRESS'?'':'none';
   c.appendChild(d);c.scrollTop=c.scrollHeight;
-  const cnt=el('logCount');cnt.textContent=parseInt(cnt.textContent||'0')+1;
+  const visible=Array.from(c.children).filter(ch=>ch.style.display!=='none').length;
+  el('logCount').textContent=visible;
 }
 async function fetchLogs(){
   try{
@@ -438,10 +523,14 @@ async function fetchLogs(){
     logs.forEach(l=>{
       if(l._id&&l._id<=_logLastId)return;
       if(l._id)_logLastId=l._id;
-      const d=document.createElement('div');d.className='l '+l.level;d.textContent=l.formatted;
+      const level=logLevel(l.level);
+      const d=document.createElement('div');d.className='l '+level;d.textContent=l.formatted;
+      d.style.display=_logFilters[level]||level==='INPROGRESS'?'':'none';
       c.appendChild(d);
     });
-    if(logs.length){el('logCount').textContent=logs.length;c.scrollTop=c.scrollHeight}
+    const visible=Array.from(c.children).filter(ch=>ch.style.display!=='none').length;
+    el('logCount').textContent=visible;
+    c.scrollTop=c.scrollHeight;
   }catch(_){}
 }
 function toggleLogBar(){
@@ -472,6 +561,7 @@ function switchPanel(name){
   if(name==='graph'&&gData.nodes)setTimeout(()=>renderGraph(gData),50);
   if(name==='browse')loadBrowse();
   if(name==='pool')loadPoolPanel();
+  if(name==='web'){document.getElementById('webUrlInput').focus();loadWebList();}
   if(name==='about')loadAbout();
 }
 
@@ -504,11 +594,11 @@ async function loadHeaderStats(){
 }
 
 // ── Graph Style Controls ──
-let GS={paperColor:'#60a5fa',lineageColor:'#2dd4bf',conceptColor:'#c084fc',edgeColor:'#1e3a5f',citeColor:'#34d399',paperSize:14,conceptSize:7};
+let GS={paperColor:'#60a5fa',lineageColor:'#2dd4bf',webColor:'#fb923c',conceptColor:'#c084fc',edgeColor:'#1e3a5f',citeColor:'#34d399',paperSize:14,conceptSize:7};
 (function(){
   try{const s=JSON.parse(localStorage.getItem('hive_graph_style'));if(s)Object.assign(GS,s)}catch(_){}
   const set=function(id,val){const e=document.getElementById(id);if(e)e.value=val};
-  set('gcPaperColor',GS.paperColor);set('gcLineageColor',GS.lineageColor);set('gcConceptColor',GS.conceptColor);
+  set('gcPaperColor',GS.paperColor);set('gcLineageColor',GS.lineageColor);set('gcWebColor',GS.webColor);set('gcConceptColor',GS.conceptColor);
   set('gcEdgeColor',GS.edgeColor);set('gcCiteColor',GS.citeColor);
   set('gcPaperSize',GS.paperSize);set('gcConceptSize',GS.conceptSize);
   const sv=function(id,val){const e=document.getElementById(id);if(e)e.textContent=val};
@@ -522,6 +612,7 @@ function toggleGraphControls(){
 function applyGraphStyle(){
   GS.paperColor=document.getElementById('gcPaperColor').value;
   GS.lineageColor=document.getElementById('gcLineageColor').value;
+  GS.webColor=document.getElementById('gcWebColor').value;
   GS.conceptColor=document.getElementById('gcConceptColor').value;
   GS.edgeColor=document.getElementById('gcEdgeColor').value;
   GS.citeColor=document.getElementById('gcCiteColor').value;
@@ -533,10 +624,10 @@ function applyGraphStyle(){
   if(gData.nodes)renderGraph(gData);
 }
 function resetGraphStyle(){
-  GS={paperColor:'#60a5fa',lineageColor:'#2dd4bf',conceptColor:'#c084fc',edgeColor:'#1e3a5f',citeColor:'#34d399',paperSize:14,conceptSize:7};
+  GS={paperColor:'#60a5fa',lineageColor:'#2dd4bf',webColor:'#fb923c',conceptColor:'#c084fc',edgeColor:'#1e3a5f',citeColor:'#34d399',paperSize:14,conceptSize:7};
   saveGraphStyle();
   const set=function(id,val){const e=document.getElementById(id);if(e)e.value=val};
-  set('gcPaperColor',GS.paperColor);set('gcLineageColor',GS.lineageColor);set('gcConceptColor',GS.conceptColor);
+  set('gcPaperColor',GS.paperColor);set('gcLineageColor',GS.lineageColor);set('gcWebColor',GS.webColor);set('gcConceptColor',GS.conceptColor);
   set('gcEdgeColor',GS.edgeColor);set('gcCiteColor',GS.citeColor);
   set('gcPaperSize',GS.paperSize);set('gcConceptSize',GS.conceptSize);
   document.getElementById('gcPaperSizeV').textContent=GS.paperSize;
@@ -607,15 +698,21 @@ function renderGraph(data){
   node.filter(d=>citedIds.has(d.id)).append('rect')
     .attr('width',ps).attr('height',ps).attr('x',-ps/2).attr('y',-ps/2).attr('rx',4)
     .attr('fill',GS.lineageColor).attr('stroke',GS.lineageColor).attr('stroke-width',2).attr('stroke-opacity',.5);
+  node.filter(d=>d.type==='web').append('rect')
+    .attr('width',ps+4).attr('height',ps+4).attr('x',-(ps+4)/2).attr('y',-(ps+4)/2).attr('rx',2)
+    .attr('transform','rotate(45)')
+    .attr('fill',GS.webColor).attr('stroke',GS.webColor).attr('stroke-width',2).attr('stroke-opacity',.5);
 
-  node.filter(d=>d.type!=='paper'&&d.group!==0).append('circle')
+  node.filter(d=>d.type!=='paper'&&d.group!==0&&d.type!=='web').append('circle')
     .attr('r',cs).attr('fill',GS.conceptColor).attr('stroke',GS.conceptColor).attr('stroke-width',2).attr('stroke-opacity',.5);
   node.append('text').text(d=>d.label?.substring(0,25)).attr('font-size','10px').attr('dx',14).attr('dy',4).attr('fill','#94a3b8');
+  node.on('click',function(e,d){showNodePreview(d);});
   node.on('mouseenter',function(e,d){
     let tip = '<b>'+esc(d.label)+'</b>'+(d.type?' <span style="color:#94a3b8">('+d.type+')</span>':'');
     if(d.abstract) tip += '<br>'+esc(d.abstract.substring(0,250));
     else if(d.definition) tip += '<br><i>'+esc(d.definition)+'</i>';
     else if(d.type==='concept') tip += '<br><span style="color:#64748b">Extracted concept</span>';
+    else if(d.type==='web') tip += '<br><span style="color:#fb923c">Web resource</span>';
     tooltip.style('opacity',1).html(tip);
     d3.select(this).select('rect,circle').attr('stroke-width',3);
     link.attr('stroke-opacity',l=>l.source.id===d.id||l.target.id===d.id?0.5:0.05);
@@ -655,6 +752,67 @@ function applyFilter(val){
   d3.selectAll('#graphWrap g g').attr('opacity',d=>!l||d.label?.toLowerCase().includes(l)?1:.15);
 }
 
+// ── Node Preview ──
+function closePreview(){el('nodePreview').style.display='none'}
+function showNodePreview(d){
+  const p=el('nodePreview');
+  el('previewTitle').textContent=d.label||'';
+  let meta='',abs='',actions='',more='';
+  if(d.type==='paper'||d.type==='web'||d.group===0){
+    if(d.arxiv_id)meta+='arXiv: '+d.arxiv_id;
+    if(d.authors)meta+=(meta?' &middot; ':'')+esc(d.authors).substring(0,120);
+    if(d.published)meta+=(meta?' &middot; ':'')+d.published;
+    if(d.affiliations)more+='<div><b>Affiliations:</b> '+esc(d.affiliations)+'</div>';
+    if(d.abstract)abs=esc(d.abstract.substring(0,500));
+    else if(d.definition&&d.type==='web')abs=esc(d.definition);
+    if(d.arxiv_id)actions+='<a href="https://arxiv.org/abs/'+d.arxiv_id+'" target="_blank" class="btn btn-sm">arXiv</a>';
+    if(d.arxiv_id)actions+='<a href="https://arxiv.org/pdf/'+d.arxiv_id+'" target="_blank" class="btn btn-sm btn-outline">PDF</a>';
+    if(d.definition&&d.type==='web'){
+      const lines=d.definition.split('\n');
+      const urlLine=lines.find(l=>l.startsWith('URL:'));
+      if(urlLine){const url=urlLine.replace('URL:','').trim();actions+='<a href="'+url+'" target="_blank" class="btn btn-sm btn-outline">Open</a>'}
+      const imgLine=lines.find(l=>l.startsWith('Images:'));
+      if(imgLine)more+='<div style="margin-top:4px"><b>Images:</b><br>'+imgLine.replace('Images:','').split(';').map(u=>u.trim()).filter(u=>u).map(u=>'<a href="'+u+'" target="_blank" style="color:var(--accent);display:block;font-size:10px">'+u.substring(0,60)+'</a>').join('')+'</div>';
+    }
+    // Parse extra JSON data (notes, experiment, results) from definition
+    if(d.type!=='web'&&d.definition){
+      try{
+        const extra=JSON.parse(d.definition);
+        if(extra.notes)more+='<div style="margin-top:6px"><b>Notes:</b><br><span style="color:var(--text2)">'+esc(extra.notes.substring(0,400))+'</span></div>';
+        if(extra.experiment){
+          const exp=extra.experiment;
+          let expHtml='';
+          if(exp.methodology)expHtml+='<b>Methodology:</b> '+esc(exp.methodology.substring(0,200))+'<br>';
+          if(exp.dataset)expHtml+='<b>Dataset:</b> '+esc(exp.dataset.substring(0,150))+'<br>';
+          if(exp.setup)expHtml+='<b>Setup:</b> '+esc(exp.setup.substring(0,150));
+          if(expHtml)more+='<div style="margin-top:6px"><b>Experiment:</b><br><span style="color:var(--text2);font-size:11px">'+expHtml+'</span></div>';
+        }
+        if(extra.results){
+          const res=extra.results;
+          let resHtml='';
+          if(res.main_findings)resHtml+=esc(res.main_findings.substring(0,300));
+          if(res.metrics){
+            resHtml+='<br><b>Metrics:</b> ';
+            if(typeof res.metrics==='object'){
+              resHtml+=Object.entries(res.metrics).filter(([k,v])=>v).map(([k,v])=>esc(k)+': '+esc(String(v))).join(', ');
+            }else{resHtml+=esc(String(res.metrics))}
+          }
+          if(resHtml)more+='<div style="margin-top:6px"><b>Results:</b><br><span style="color:var(--text2);font-size:11px">'+resHtml+'</span></div>';
+        }
+      }catch(_){}
+    }
+  }else if(d.type==='concept'){
+    if(d.definition)abs=esc(d.definition);
+    else abs='<span style="color:var(--text3)">Extracted concept</span>';
+    meta='Concept';
+  }
+  el('previewMeta').innerHTML=meta;
+  el('previewAbstract').innerHTML=abs;
+  el('previewActions').innerHTML=actions;
+  el('previewMore').innerHTML=more;
+  p.style.display='block';
+}
+
 // ── Add Paper ──
 async function addPaper(){
   const raw=el('arxivInput').value.trim();
@@ -671,6 +829,49 @@ async function addPaper(){
     else{addLog('Error: '+(r.message||JSON.stringify(r)),'ERROR')}
     refreshAll();
   }catch(e){addLog('Error: '+e,'ERROR')}
+}
+
+// ── Web Ingest ──
+async function ingestWeb(){
+  const url=el('webUrlInput').value.trim();
+  if(!url)return;
+  addLog('Ingesting web page: '+url+'...','INPROGRESS');
+  el('webUrlInput').value='';
+  try{
+    const r=await api('/api/web/add','POST',{url});
+    if(r.status==='added'){
+      addLog('Web link added: '+r.title.substring(0,60)+' ('+r.concepts+' concepts, '+r.tags+' tags)','DONE');
+      el('webResult').innerHTML='<div class="card" style="margin-top:8px"><h4 style="color:var(--accent);margin-bottom:4px">'+esc(r.title)+'</h4>'+
+        (r.summary?'<p style="font-size:12px;color:var(--text2)">'+esc(r.summary.substring(0,300))+'</p>':'')+
+        (r.tags&&r.tags.length?'<div style="margin-top:4px">'+r.tags.map(t=>'<span class="pool-tag">'+esc(t)+'</span>').join('')+'</div>':'')+
+        '</div>';
+      refreshAll();
+    }else if(r.status==='exists'){
+      addLog('Web link already exists','WARN');
+    }else{
+      addLog('Error: '+(r.message||JSON.stringify(r)),'ERROR');
+    }
+    loadWebList();
+  }catch(e){addLog('Error: '+e,'ERROR')}
+}
+
+async function loadWebList(){
+  try{
+    const items=await api('/api/web/list');
+    const c=el('webList');
+    if(!items||!items.length){c.innerHTML='<div style="color:var(--text3);text-align:center;padding:10px;font-size:11px">No web articles ingested yet</div>';return}
+    c.innerHTML=items.map(w=>'<div class="web-list-item" onclick="showWebPreview(\''+w.id+'\')"><div class="wli-info"><h4>'+esc(w.title.substring(0,60))+'</h4><div class="sub">'+esc(w.url.substring(0,80))+'</div></div><span style="color:var(--text3);font-size:10px;white-space:nowrap">'+esc(w.summary.substring(0,60))+'</span></div>').join('');
+  }catch(_){}
+}
+
+async function showWebPreview(id){
+  try{
+    const papers=await api('/api/papers');
+    const p=papers.find(pp=>pp.id===id);
+    if(!p)return;
+    const node=gData.nodes.find(n=>n.id===id);
+    if(node)showNodePreview(node);
+  }catch(_){}
 }
 
 // ── Search ──

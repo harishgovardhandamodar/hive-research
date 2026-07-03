@@ -11,6 +11,7 @@ from .pipeline import PaperPipeline
 from .pool import ResearchPool
 from .rag import RAGEngine
 from .similarity import paper_similarity_matrix
+from .web_ingest import WebIngester
 
 logger = logging.getLogger(__name__)
 
@@ -23,6 +24,7 @@ class Organizer:
         self.pipeline = PaperPipeline(config, self.llm, self.kg)
         self.rag = RAGEngine(config, self.llm, self.kg)
         self.pool = ResearchPool(config.root_dir / "pool")
+        self.web = WebIngester(self.llm, self.kg)
 
     def add_by_id(self, arxiv_id: str, with_lineage: bool = False) -> dict[str, Any]:
         result = fetch_by_id_with_meta(arxiv_id)
