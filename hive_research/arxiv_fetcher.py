@@ -59,13 +59,16 @@ def fetch_by_id(arxiv_id: str) -> PaperInfo | None:
 def download_pdf(arxiv_id: str, target_dir: str | Path) -> Path | None:
     target_dir = Path(target_dir)
     target_dir.mkdir(parents=True, exist_ok=True)
-    client = arxiv.Client()
+    import requests as req
+    pdf_url = f"https://arxiv.org/pdf/{arxiv_id}.pdf"
+    target_path = target_dir / f"{arxiv_id}.pdf"
     try:
-        search = arxiv.Search(id_list=[arxiv_id])
-        for r in client.results(search):
-            path = r.download_pdf(dirpath=str(target_dir))
-            return Path(path) if path else None
+        resp = req.get(pdf_url, timeout=60, headers={
+            "User-Agent": "hive-research/0.1.0 (mailto:research@example.com)"
+        })
+        resp.raise_for_status()
+        target_path.write_bytes(resp.content)
+        return target_path
     except Exception as e:
         logger.error("Failed to download PDF for %s: %s", arxiv_id, e)
         return None
-    return None
