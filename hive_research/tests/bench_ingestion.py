@@ -94,7 +94,7 @@ def run_benchmark(arxiv_id: str, temp_root: Path | None = None) -> dict[str, Any
                 },
                 "graph": {"similarity_threshold": 0.85},
                 "rag": {"chunk_size": 512, "chunk_overlap": 64, "top_k": 5},
-                "server": {"host": "127.0.0.1", "port": 8080},
+                "server": {"host": "127.0.0.1", "port": 7777},
             }
 
     config: Config = BenchConfig()

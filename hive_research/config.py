@@ -104,4 +104,4 @@ class Config:
 
     @property
     def server_port(self) -> int:
-        return int(self._get("server", "port", default=8080))
+        return int(self._get("server", "port", default=7777))

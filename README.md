@@ -97,7 +97,8 @@ python -m hive_research -v add 2409.13004
 
 ```bash
 python -m hive_research serve
-# Open http://127.0.0.1:8080
+python -m hive_research serve --port 7777
+# Open http://127.0.0.1:7777
 ```
 
 | Panel | Description |

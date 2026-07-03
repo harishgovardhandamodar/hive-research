@@ -119,7 +119,7 @@ def main() -> None:
 
     p_serve = sub.add_parser("serve", help="Start web server")
     p_serve.add_argument("--host", type=str, default="127.0.0.1")
-    p_serve.add_argument("--port", type=int, default=8080)
+    p_serve.add_argument("--port", type=int, default=7777)
     p_serve.set_defaults(func=cmd_serve)
 
     args = parser.parse_args()
