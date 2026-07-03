@@ -32,7 +32,13 @@ class KnowledgeGraph:
         path = self._path()
         if path.exists():
             try:
-                return HiveGraph.from_json_file(str(path))
+                hive = HiveGraph.from_json_file(str(path))
+                valid_ids = {n.id for n in hive.nodes}
+                before = len(hive.edges)
+                hive.edges = [e for e in hive.edges if e.source in valid_ids and e.target in valid_ids]
+                if len(hive.edges) < before:
+                    logger.warning("Removed %d edges with invalid node refs", before - len(hive.edges))
+                return hive
             except Exception as e:
                 logger.warning("Failed to load graph, starting fresh: %s", e)
         return HiveGraph(id=self.graph_id)

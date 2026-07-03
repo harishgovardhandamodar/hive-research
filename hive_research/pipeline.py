@@ -88,11 +88,14 @@ class PaperPipeline:
             self.kg.add_edge(paper_id, cid, rel)
 
         for r in relations:
-            src = r.get("source", paper_id)
-            tgt = r.get("target", "")
+            raw_src = r.get("source", paper_id)
+            raw_tgt = r.get("target", "")
             rel = r.get("relation", "related_to")
-            if src and tgt:
-                self.kg.add_edge(src, tgt, rel)
+            if raw_src and raw_tgt:
+                src = self._resolve_id(raw_src, paper_id)
+                tgt = self._resolve_id(raw_tgt, paper_id)
+                if src and tgt:
+                    self.kg.add_edge(src, tgt, rel)
 
         note_path = self._write_note(paper_id, paper, summary, tags, concepts)
         self.kg.save()
@@ -105,6 +108,19 @@ class PaperPipeline:
             "relations": len(relations),
             "note_path": str(note_path) if note_path else None,
         }
+
+    def _resolve_id(self, name: str, fallback: str) -> str:
+        sid = _sanitize_id(name)
+        node = self.kg.get_paper(sid) or self.kg.get_concept(sid)
+        if node:
+            return node.id
+        for n in self.kg._hive.nodes:
+            if n.label.lower() == name.lower():
+                return n.id
+        for n in self.kg._hive.nodes:
+            if name.lower() in n.label.lower() or n.label.lower() in name.lower():
+                return n.id
+        return sid or fallback
 
     def _analyze_text(
         self,
