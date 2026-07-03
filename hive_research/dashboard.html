@@ -40,7 +40,7 @@ input,textarea,select{font-family:inherit;font-size:inherit}
 .header .stats .s .dot{width:6px;height:6px;border-radius:50%}
 .header .stats .s strong{font-size:12px;min-width:12px;text-align:center}
 .dot.p{background:var(--accent)}.dot.c{background:var(--purple)}.dot.e{background:var(--yellow)}
-#gpuStatus{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text3);padding:3px 10px;border:1px solid var(--border);border-radius:12px;background:var(--bg);cursor:pointer}
+#gpuStatus{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text3);padding:3px 10px;border:1px solid var(--border);border-radius:12px;background:var(--bg);cursor:pointer;flex-shrink:0}
 
 .body{display:flex;flex:1;overflow:hidden}
 .sidebar{width:48px;min-width:48px;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;align-items:center;padding:8px 0;gap:2px;flex-shrink:0}
@@ -52,9 +52,9 @@ input,textarea,select{font-family:inherit;font-size:inherit}
 .sidebar .spacer{flex:1}
 
 .main{flex:1;display:flex;flex-direction:column;overflow:hidden;padding:0}
+.main-top{flex:1;display:flex;flex-direction:column;overflow:hidden}
 .panel{display:none;flex-direction:column;height:100%;overflow:hidden}
 .panel.active{display:flex}
-
 .panel-header{padding:14px 20px 10px;border-bottom:1px solid var(--border);flex-shrink:0}
 .panel-header h2{font-size:15px;font-weight:600;display:flex;align-items:center;gap:8px}
 .panel-header h2 .badge{background:var(--surface2);color:var(--text2);font-size:10px;padding:1px 8px;border-radius:8px;font-weight:500}
@@ -75,12 +75,6 @@ textarea{resize:vertical;min-height:60px;font-family:inherit}
 
 .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px}
 .card-header{font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px}
-
-#log{background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:10px;font-family:'SF Mono',Menlo,monospace;font-size:11px;color:var(--text2);max-height:160px;overflow-y:auto;white-space:pre-wrap;flex-shrink:0;min-height:50px;line-height:1.6}
-#log .error{color:var(--red)}
-#log .done{color:var(--green)}
-#log .warn{color:var(--yellow)}
-#log .info{color:var(--accent)}
 
 #graphWrap{flex:1;position:relative;min-height:300px;background:var(--bg);border-radius:var(--radius);border:1px solid var(--border);overflow:hidden}
 #graphWrap svg{width:100%;height:100%;display:block}
@@ -160,8 +154,8 @@ textarea{resize:vertical;min-height:60px;font-family:inherit}
 .pool-card .pabs{font-size:11px;color:var(--text2);max-height:42px;overflow:hidden;cursor:pointer;transition:max-height .2s;line-height:1.5}
 .pool-card .pabs.expanded{max-height:500px}
 .pool-card .pactions{display:flex;gap:6px;margin-top:8px}
-.pool-card .pactions a{color:var(--accent);text-decoration:none;font-size:11px;padding:3px 8px;border-radius:4px;border:1px solid var(--border);transition:all .15s}
-.pool-card .pactions a:hover{background:var(--surface2)}
+.pool-card .pactions a,.pool-card .pactions .act{color:var(--accent);text-decoration:none;font-size:11px;padding:3px 8px;border-radius:4px;border:1px solid var(--border);transition:all .15s;cursor:pointer;background:none;font-family:inherit}
+.pool-card .pactions a:hover,.pool-card .pactions .act:hover{background:var(--surface2)}
 .pool-list-table{width:100%;border-collapse:collapse;font-size:12px}
 .pool-list-table th,.pool-list-table td{padding:6px 10px;border-bottom:1px solid var(--border);text-align:left}
 .pool-list-table th{color:var(--text3);font-size:10px;text-transform:uppercase;letter-spacing:.5px;font-weight:600}
@@ -173,6 +167,22 @@ textarea{resize:vertical;min-height:60px;font-family:inherit}
 @keyframes spin{to{transform:rotate(360deg)}}
 #poolGraphWrap{flex:1;min-height:300px;background:var(--bg);border-radius:var(--radius);border:1px solid var(--border);overflow:hidden;position:relative}
 #poolGraphWrap svg{width:100%;height:100%;display:block}
+
+/* Bottom log bar */
+.log-bar{background:var(--surface);border-top:1px solid var(--border);flex-shrink:0;display:flex;flex-direction:column;max-height:40vh;transition:max-height .25s}
+.log-bar.collapsed{max-height:32px}
+.log-bar-header{display:flex;align-items:center;justify-content:space-between;padding:5px 16px;cursor:pointer;user-select:none;font-size:11px;color:var(--text3);border-bottom:1px solid var(--border);flex-shrink:0}
+.log-bar-header:hover{background:var(--surface2)}
+.log-bar-header .ll{display:flex;align-items:center;gap:8px}
+.log-bar-header .ll .count{background:var(--bg);padding:1px 6px;border-radius:6px;font-size:10px}
+.log-bar-content{flex:1;overflow-y:auto;padding:6px 16px;font-family:'SF Mono',Menlo,monospace;font-size:10.5px;line-height:1.7;min-height:0}
+.log-bar-content .l{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.log-bar-content .l.ERROR{color:var(--red)}
+.log-bar-content .l.WARNING,.log-bar-content .l.WARN{color:var(--yellow)}
+.log-bar-content .l.INFO{color:var(--text2)}
+.log-bar-content .l.DEBUG{color:var(--text3)}
+.log-bar-content .l.DONE{color:var(--green)}
+.log-bar-content .l.INPROGRESS{color:var(--accent)}
 </style>
 </head>
 <body>
@@ -185,33 +195,18 @@ textarea{resize:vertical;min-height:60px;font-family:inherit}
 </div>
 <div class="body">
 <div class="sidebar" id="sidebar">
-  <div class="nav-item active" data-panel="graph" onclick="switchPanel('graph')">
-    &#x25E1;<span class="tip">Graph</span>
-  </div>
-  <div class="nav-item" data-panel="add" onclick="switchPanel('add')">
-    &#x271A;<span class="tip">Add Paper</span>
-  </div>
-  <div class="nav-item" data-panel="search" onclick="switchPanel('search')">
-    &#x2315;<span class="tip">Search</span>
-  </div>
-  <div class="nav-item" data-panel="browse" onclick="switchPanel('browse')">
-    &#x2630;<span class="tip">Browse</span>
-  </div>
-  <div class="nav-item" data-panel="pool" onclick="switchPanel('pool')">
-    &#x25E2;<span class="tip">Pool</span>
-  </div>
-  <div class="nav-item" data-panel="similarity" onclick="switchPanel('similarity')">
-    &#x2248;<span class="tip">Similarity</span>
-  </div>
-  <div class="nav-item" data-panel="query" onclick="switchPanel('query')">
-    &#x1F4AC;<span class="tip">Chat</span>
-  </div>
+  <div class="nav-item active" data-panel="graph" onclick="switchPanel('graph')">&#x25E1;<span class="tip">Graph</span></div>
+  <div class="nav-item" data-panel="add" onclick="switchPanel('add')">&#x271A;<span class="tip">Add Paper</span></div>
+  <div class="nav-item" data-panel="search" onclick="switchPanel('search')">&#x2315;<span class="tip">Search</span></div>
+  <div class="nav-item" data-panel="browse" onclick="switchPanel('browse')">&#x2630;<span class="tip">Browse</span></div>
+  <div class="nav-item" data-panel="pool" onclick="switchPanel('pool')">&#x25E2;<span class="tip">Pool</span></div>
+  <div class="nav-item" data-panel="similarity" onclick="switchPanel('similarity')">&#x2248;<span class="tip">Similarity</span></div>
+  <div class="nav-item" data-panel="query" onclick="switchPanel('query')">&#x1F4AC;<span class="tip">Chat</span></div>
   <div class="spacer"></div>
-  <div class="nav-item" data-panel="about" onclick="switchPanel('about')">
-    &#x2139;<span class="tip">About</span>
-  </div>
+  <div class="nav-item" data-panel="about" onclick="switchPanel('about')">&#x2139;<span class="tip">About</span></div>
 </div>
 <div class="main">
+<div class="main-top">
 
 <!-- ── Graph Panel ── -->
 <div class="panel active" id="panel-graph">
@@ -221,10 +216,7 @@ textarea{resize:vertical;min-height:60px;font-family:inherit}
       <svg></svg>
       <div id="graphEmpty"><div class="icon">&#x1F4DA;</div>No papers yet &mdash; add one to get started</div>
       <input id="graphFilter" class="tab" placeholder="Filter nodes..." oninput="applyFilter(this.value)">
-      <div id="graphLegend">
-        <div class="l"><div class="sw" style="background:var(--accent)"></div> Paper</div>
-        <div class="l"><div class="sw cir" style="background:var(--purple)"></div> Concept</div>
-      </div>
+      <div id="graphLegend"><div class="l"><div class="sw" style="background:var(--accent)"></div> Paper</div><div class="l"><div class="sw cir" style="background:var(--purple)"></div> Concept</div></div>
       <div id="tooltip"></div>
     </div>
   </div>
@@ -241,7 +233,6 @@ textarea{resize:vertical;min-height:60px;font-family:inherit}
       </div>
       <button class="btn" onclick="addPaper()">&#x271A; Add Paper</button>
     </div>
-    <div id="log">Ready</div>
   </div>
 </div>
 
@@ -260,7 +251,6 @@ textarea{resize:vertical;min-height:60px;font-family:inherit}
       </div>
     </div>
     <div id="searchResults" style="display:flex;flex-direction:column;gap:8px;min-height:0"></div>
-    <div id="log" style="flex-shrink:0">Ready</div>
   </div>
 </div>
 
@@ -319,7 +309,6 @@ textarea{resize:vertical;min-height:60px;font-family:inherit}
       <button class="btn" onclick="loadSimilarity()">&#x2248; Compute Paper Similarity</button>
     </div>
     <div id="simResults"></div>
-    <div id="log">Ready</div>
   </div>
 </div>
 
@@ -349,19 +338,21 @@ textarea{resize:vertical;min-height:60px;font-family:inherit}
       <div class="stat-card"><div class="num" id="aboutEdges">0</div><div class="lbl">Relations</div></div>
       <div class="stat-card"><div class="num" id="aboutChunks">0</div><div class="lbl">RAG Chunks</div></div>
     </div>
-    <div class="card">
-      <div class="card-header">System</div>
-      <div id="sysInfo" style="font-size:12px;color:var(--text2);line-height:1.8"></div>
-    </div>
-    <div class="card">
-      <div class="card-header">Ollama</div>
-      <div id="ollamaInfo" style="font-size:12px;color:var(--text2);line-height:1.8"></div>
-    </div>
-    <div class="card">
-      <div class="card-header">GPU</div>
-      <div id="gpuInfo" style="font-size:12px;color:var(--text2);line-height:1.8"></div>
-    </div>
+    <div class="card"><div class="card-header">System</div><div id="sysInfo" style="font-size:12px;color:var(--text2);line-height:1.8"></div></div>
+    <div class="card"><div class="card-header">Ollama</div><div id="ollamaInfo" style="font-size:12px;color:var(--text2);line-height:1.8"></div></div>
+    <div class="card"><div class="card-header">GPU</div><div id="gpuInfo" style="font-size:12px;color:var(--text2);line-height:1.8"></div></div>
   </div>
+</div>
+
+</div><!-- /main-top -->
+
+<!-- ── Persistent Bottom Log Bar ── -->
+<div class="log-bar" id="logBar">
+  <div class="log-bar-header" onclick="toggleLogBar()">
+    <div class="ll">&#x2630; Activity Log <span class="count" id="logCount">0</span></div>
+    <span id="logToggle">&#x25B2;</span>
+  </div>
+  <div class="log-bar-content" id="logContent"></div>
 </div>
 
 </div></div></div>
@@ -371,29 +362,57 @@ textarea{resize:vertical;min-height:60px;font-family:inherit}
 let gData = {nodes:[],links:[]};
 let simulation = null;
 let searchResults = [];
+let _poolStore = [];
+let _logCollapsed = false;
+let _logLastId = 0;
 
 // ── Helpers ──
-function log(msg,cls=''){const e=document.getElementById('log');if(!e)return;const d=document.createElement('div');if(cls)d.className=cls;d.textContent=msg;e.appendChild(d);e.scrollTop=e.scrollHeight}
 function el(id){return document.getElementById(id)}
-
 async function api(path,method='GET',body=null){
   const opts={method,headers:{'Content-Type':'application/json'}};
   if(body) opts.body=JSON.stringify(body);
   const r=await fetch(path,opts);
   return r.json();
 }
-
 function esc(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML}
+
+// ── Log Viewer ──
+function addLog(msg,cls=''){
+  const c=el('logContent');
+  if(!c)return;
+  const d=document.createElement('div');d.className='l '+(cls||'INFO');d.textContent=msg;
+  c.appendChild(d);c.scrollTop=c.scrollHeight;
+  const cnt=el('logCount');cnt.textContent=parseInt(cnt.textContent||'0')+1;
+}
+async function fetchLogs(){
+  try{
+    const logs=await api('/api/logs?n=50');
+    const c=el('logContent');if(!c)return;
+    logs.forEach(l=>{
+      if(l._id&&l._id<=_logLastId)return;
+      if(l._id)_logLastId=l._id;
+      const d=document.createElement('div');d.className='l '+l.level;d.textContent=l.formatted;
+      c.appendChild(d);
+    });
+    if(logs.length){el('logCount').textContent=logs.length;c.scrollTop=c.scrollHeight}
+  }catch(_){}
+}
+function toggleLogBar(){
+  _logCollapsed=!_logCollapsed;
+  el('logBar').classList.toggle('collapsed',_logCollapsed);
+  el('logToggle').textContent=_logCollapsed?'\u25BC':'\u25B2';
+}
+setInterval(fetchLogs,2000);
 
 // ── Panel Switching ──
 function switchPanel(name){
   document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
-  document.getElementById('panel-'+name).classList.add('active');
+  el('panel-'+name).classList.add('active');
   document.querySelector('.nav-item[data-panel="'+name+'"]').classList.add('active');
   if(name==='graph'&&gData.nodes)renderGraph(gData);
   if(name==='browse')loadBrowse();
-  if(name==='pool')loadPool();
+  if(name==='pool')loadPoolPanel();
   if(name==='about')loadAbout();
 }
 
@@ -428,61 +447,40 @@ function renderGraph(data){
   const svg=d3.select('#graphWrap svg');
   svg.selectAll('*').remove();
   el('graphEmpty').style.display=(!data.nodes||data.nodes.length===0)?'':'none';
-
   const rect=el('graphWrap').getBoundingClientRect();
   const W=rect.width||800,H=Math.max(rect.height,400);
   svg.attr('viewBox',[0,0,W,H]);
-
   if(!data.nodes||data.nodes.length===0)return;
-
   const links=data.links.map(d=>({...d}));
   const nodes=data.nodes.map(d=>({...d}));
-
   const tooltip=d3.select('#tooltip');
-
   function drag(sim){
-    function started(e,d){
-      if(!e.active)sim.alphaTarget(.3).restart();
-      d.fx=d.x;d.fy=d.y;
-    }
+    function started(e,d){if(!e.active)sim.alphaTarget(.3).restart();d.fx=d.x;d.fy=d.y}
     function dragged(e,d){d.fx=e.x;d.fy=e.y}
-    function ended(e,d){
-      if(!e.active)sim.alphaTarget(0);
-      d.fx=null;d.fy=null;
-    }
+    function ended(e,d){if(!e.active)sim.alphaTarget(0);d.fx=null;d.fy=null}
     return d3.drag().on('start',started).on('drag',dragged).on('end',ended);
   }
-
   simulation=d3.forceSimulation(nodes)
     .force('link',d3.forceLink(links).id(d=>d.id).distance(d=>d.type==='paper'?140:100).strength(.3))
     .force('charge',d3.forceManyBody().strength(d=>d.type==='paper'?-300:-150))
     .force('center',d3.forceCenter(W/2,H/2))
     .force('collision',d3.forceCollide(d=>d.type==='paper'?35:20));
-
   const defs=svg.append('defs');
   defs.append('marker').attr('id','arrow').attr('viewBox','0 -5 10 10').attr('refX',20).attr('refY',0).attr('markerWidth',6).attr('markerHeight',6).attr('orient','auto')
     .append('path').attr('d','M0,-5L10,0L0,5').attr('fill','var(--border)');
-
   const link=svg.append('g').selectAll('line').data(links).join('line')
     .attr('stroke','var(--border)').attr('stroke-width',1).attr('stroke-opacity',.5).attr('marker-end','url(#arrow)');
-
   const linkLabel=svg.append('g').selectAll('g').data(links).join('g');
   linkLabel.append('rect').attr('fill','var(--surface)').attr('rx',3).attr('ry',3).style('display','none');
   linkLabel.append('text').text(d=>d.relation||'').attr('font-size','8px').attr('fill','var(--text3)').style('display','none');
-
   const node=svg.append('g').selectAll('g').data(nodes).join('g').call(drag(simulation));
-
   node.append('title').text(d=>d.label+(d.abstract?'\n'+d.abstract.substring(0,300):'')+(d.definition?'\n'+d.definition:''));
-
   node.filter(d=>d.type==='paper'||d.group===0).append('rect')
     .attr('width',12).attr('height',12).attr('x',-6).attr('y',-6).attr('rx',3)
     .attr('fill','var(--accent)').attr('stroke','rgba(96,165,250,.3)').attr('stroke-width',2);
-
   node.filter(d=>d.type!=='paper'&&d.group!==0).append('circle')
     .attr('r',6).attr('fill','var(--purple)').attr('stroke','rgba(192,132,252,.3)').attr('stroke-width',2);
-
   node.append('text').text(d=>d.label?.substring(0,25)).attr('font-size','10px').attr('dx',14).attr('dy',4).attr('fill','var(--text2)');
-
   node.on('mouseenter',function(e,d){
     tooltip.style('opacity',1).html(
       '<b>'+esc(d.label)+'</b>'+(d.type?' <span style="color:var(--text3)">('+d.type+')</span>':'')+
@@ -501,20 +499,14 @@ function renderGraph(data){
     link.attr('stroke-opacity',.5);
     node.attr('opacity',1);
   });
-
   simulation.on('tick',()=>{
     link.attr('x1',d=>d.source.x).attr('y1',d=>d.source.y).attr('x2',d=>d.target.x).attr('y2',d=>d.target.y);
-    linkLabel.attr('transform',d=>{
-      const mx=(d.source.x+d.target.x)/2,my=(d.source.y+d.target.y)/2;
-      const ang=Math.atan2(d.target.y-d.source.y,d.target.x-d.source.x)*180/Math.PI;
-      return 'translate('+mx+','+my+') rotate('+(ang>90||ang<-90?ang+180:ang)+')';
-    });
+    linkLabel.attr('transform',d=>{const mx=(d.source.x+d.target.x)/2,my=(d.source.y+d.target.y)/2;const ang=Math.atan2(d.target.y-d.source.y,d.target.x-d.source.x)*180/Math.PI;return 'translate('+mx+','+my+') rotate('+(ang>90||ang<-90?ang+180:ang)+')'});
     linkLabel.select('text').style('display','block');
     linkLabel.select('rect').style('display','block').attr('width',function(){return this.nextSibling?this.nextSibling.getComputedTextLength()+8:0}).attr('height',14).attr('x',-4).attr('y',-7);
     node.attr('transform',d=>'translate('+d.x+','+d.y+')');
   });
 }
-
 function applyFilter(val){
   if(!gData.nodes)return;
   const l=val.toLowerCase();
@@ -527,59 +519,50 @@ async function addPaper(){
   if(!raw)return;
   const m=raw.match(/(\d{4}\.\d{4,5})/);
   const id=m?m[1]:raw;
-  log('Adding '+id+'...','info');
+  addLog('Adding '+id+'...','INPROGRESS');
   el('arxivInput').value='';
   try{
     const r=await api('/api/add','POST',{id});
-    if(r.status==='added'){log('Done: '+r.paper_id+' ('+r.concepts+' concepts, '+r.tags+' tags'+(r.rag_chunks?', '+r.rag_chunks+' rag chunks':'')+')','done')}
-    else if(r.status==='exists'){log('Already exists: '+id,'warn')}
-    else if(r.status==='error'){log(r.message||'arXiv API error','error')}
-    else{log('Error: '+(r.message||JSON.stringify(r)),'error')}
+    if(r.status==='added'){addLog('Done: '+r.paper_id+' ('+r.concepts+' concepts, '+r.tags+' tags'+(r.rag_chunks?', '+r.rag_chunks+' rag chunks':'')+')','DONE')}
+    else if(r.status==='exists'){addLog('Already exists: '+id,'WARN')}
+    else if(r.status==='error'){addLog(r.message||'arXiv API error','ERROR')}
+    else{addLog('Error: '+(r.message||JSON.stringify(r)),'ERROR')}
     refreshAll();
-  }catch(e){log('Error: '+e,'error')}
+  }catch(e){addLog('Error: '+e,'ERROR')}
 }
 
 // ── Search ──
 async function searchArxiv(){
   const q=el('searchInput').value.trim();
   if(!q)return;
-  log('Searching arXiv...','info');
+  addLog('Searching arXiv...','INPROGRESS');
   try{
     const results=await api('/api/search','POST',{query:q});
     searchResults=results;
     const c=el('searchResults');
     if(!results||results.length===0){c.innerHTML='<div class="card" style="text-align:center;color:var(--text3)">No results found</div>';return}
     c.innerHTML=results.map((p,i)=>'<div class="result-card" onclick="toggleResult('+i+')" id="rc'+i+'">'+
-      '<h4>'+esc(p.title)+'</h4>'+
-      '<div class="meta">'+esc(p.authors)+' &middot; '+p.published+' &middot; ['+p.arxiv_id+']</div>'+
+      '<h4>'+esc(p.title)+'</h4><div class="meta">'+esc(p.authors)+' &middot; '+p.published+' &middot; ['+p.arxiv_id+']</div>'+
       '<div class="abs">'+esc(p.abstract.substring(0,300))+'</div>'+
       '<div class="cats">'+p.categories.map(c=>'<span>'+c+'</span>').join('')+'</div></div>').join('');
     el('importBtn').style.display='inline-flex';
-    log('Found '+results.length+' results','done');
-  }catch(e){log('Error: '+e,'error')}
+    addLog('Found '+results.length+' results','DONE');
+  }catch(e){addLog('Error: '+e,'ERROR')}
 }
-
 let selectedResults=[];
-function toggleResult(i){
-  const rc=el('rc'+i);
-  rc.classList.toggle('selected');
-  const idx=selectedResults.indexOf(i);
-  if(idx>-1)selectedResults.splice(idx,1);else selectedResults.push(i);
-}
-
+function toggleResult(i){const rc=el('rc'+i);rc.classList.toggle('selected');const idx=selectedResults.indexOf(i);if(idx>-1)selectedResults.splice(idx,1);else selectedResults.push(i)}
 async function importSearch(){
   const q=el('searchInput').value.trim();
   if(!q)return;
-  log('Importing all...','info');
+  addLog('Importing all...','INPROGRESS');
   try{
     const r=await api('/api/import','POST',{query:q});
     const added=r.filter(x=>x.status==='added').length;
     const exists=r.filter(x=>x.status==='exists').length;
-    log('Imported: '+added+' new, '+exists+' already existed','done');
-    el('searchResults').innerHTML='';
-    el('importBtn').style.display='none';
+    addLog('Imported: '+added+' new, '+exists+' already existed','DONE');
+    el('searchResults').innerHTML='';el('importBtn').style.display='none';
     refreshAll();
-  }catch(e){log('Error: '+e,'error')}
+  }catch(e){addLog('Error: '+e,'ERROR')}
 }
 
 // ── Browse ──
@@ -587,37 +570,29 @@ function switchBrowseTab(name,el_){
   document.querySelectorAll('#panel-browse .tab').forEach(t=>t.classList.remove('active'));
   document.querySelectorAll('#panel-browse .tab-content').forEach(t=>t.classList.remove('active'));
   el_.classList.add('active');
-  document.getElementById('browse'+name.charAt(0).toUpperCase()+name.slice(1)).classList.add('active');
+  el('browse'+name.charAt(0).toUpperCase()+name.slice(1)).classList.add('active');
 }
-
 async function loadBrowse(){
   try{
     const [papers,concepts]=await Promise.all([api('/api/papers'),api('/api/concepts')]);
     el('browseBadge').textContent=papers.length+' papers';
-    if(papers.length){
-      el('browsePapers').innerHTML=papers.map(p=>'<div class="paper-row"><div class="info"><h4>'+esc(p.title)+'</h4><div class="sub">'+esc(p.authors)+' &middot; '+p.id+' &middot; '+p.published+'</div></div></div>').join('');
-    }else{el('browsePapers').innerHTML='<div style="color:var(--text3);text-align:center;padding:20px">No papers ingested yet</div>'}
-    if(concepts.length){
-      el('browseConcepts').innerHTML=concepts.map(c=>'<span class="concept-tag">'+esc(c.label)+'</span>').join('')+
-        '<div style="color:var(--text3);margin-top:8px;font-size:11px">'+concepts.length+' total concepts</div>';
-    }else{el('browseConcepts').innerHTML='<div style="color:var(--text3);text-align:center;padding:20px">No concepts extracted yet</div>'}
+    el('browsePapers').innerHTML=papers.length?papers.map(p=>'<div class="paper-row"><div class="info"><h4>'+esc(p.title)+'</h4><div class="sub">'+esc(p.authors)+' &middot; '+p.id+' &middot; '+p.published+'</div></div></div>').join(''):'<div style="color:var(--text3);text-align:center;padding:20px">No papers ingested yet</div>';
+    el('browseConcepts').innerHTML=concepts.length?concepts.map(c=>'<span class="concept-tag">'+esc(c.label)+'</span>').join('')+'<div style="color:var(--text3);margin-top:8px;font-size:11px">'+concepts.length+' total concepts</div>':'<div style="color:var(--text3);text-align:center;padding:20px">No concepts extracted yet</div>';
   }catch(_){}
 }
 
 // ── Similarity ──
 async function loadSimilarity(){
-  log('Computing similarity matrix...','info');
+  addLog('Computing similarity matrix...','INPROGRESS');
   try{
     const sim=await api('/api/similarity');
     const c=el('simResults');
-    if(!sim||sim.length===0){c.innerHTML='<div class="card" style="text-align:center;color:var(--text3)">Need at least 2 papers for similarity analysis</div>';log('Need at least 2 papers','warn');return}
-    const rows=sim.map(s=>{
-      const cls=s.score>.3?'high':s.score>.15?'med':'low';
-      return '<tr><td>'+esc(s.source_title.substring(0,40))+'</td><td>'+esc(s.target_title.substring(0,40))+'</td><td><span class="sim-score '+cls+'">'+(s.score*100).toFixed(0)+'%</span></td><td style="font-size:11px;color:var(--text3)">'+(s.author_overlap*100).toFixed(0)+'% auth</td></tr>';
-    }).join('');
-    c.innerHTML='<table class="sim-table"><thead><tr><th>Paper A</th><th>Paper B</th><th>Similarity</th><th>Authors</th></tr></thead><tbody>'+rows+'</tbody></table>';
-    log('Computed similarity for '+sim.length+' pairs','done');
-  }catch(e){log('Error: '+e,'error')}
+    if(!sim||sim.length===0){c.innerHTML='<div class="card" style="text-align:center;color:var(--text3)">Need at least 2 papers for similarity analysis</div>';addLog('Need at least 2 papers','WARN');return}
+    c.innerHTML='<table class="sim-table"><thead><tr><th>Paper A</th><th>Paper B</th><th>Similarity</th><th>Authors</th></tr></thead><tbody>'+
+      sim.map(s=>{const cls=s.score>.3?'high':s.score>.15?'med':'low';return '<tr><td>'+esc(s.source_title.substring(0,40))+'</td><td>'+esc(s.target_title.substring(0,40))+'</td><td><span class="sim-score '+cls+'">'+(s.score*100).toFixed(0)+'%</span></td><td style="font-size:11px;color:var(--text3)">'+(s.author_overlap*100).toFixed(0)+'% auth</td></tr>'}).join('')+
+      '</tbody></table>';
+    addLog('Computed similarity for '+sim.length+' pairs','DONE');
+  }catch(e){addLog('Error: '+e,'ERROR')}
 }
 
 // ── RAG Chat ──
@@ -636,10 +611,7 @@ async function askRag(){
     const srcs=r.sources||[];
     const srcHtml=srcs.length?'<div class="src">Sources: '+srcs.map(s=>'<a href="https://arxiv.org/abs/'+s.id+'" target="_blank">'+esc(s.title)+'</a>').join(', ')+'</div>':'';
     msgs.innerHTML+='<div class="chat-msg assistant">'+esc(ans)+srcHtml+'</div>';
-  }catch(e){
-    el('typing').remove();
-    msgs.innerHTML+='<div class="chat-msg assistant" style="color:var(--red)">Error: '+e+'</div>';
-  }
+  }catch(e){el('typing').remove();msgs.innerHTML+='<div class="chat-msg assistant" style="color:var(--red)">Error: '+e+'</div>'}
   msgs.scrollTop=msgs.scrollHeight;
 }
 
@@ -647,19 +619,10 @@ async function askRag(){
 async function loadAbout(){
   try{
     const [s,o,g]=await Promise.all([api('/api/stats'),api('/api/ollama'),api('/api/gpu')]);
-    const sys=el('sysInfo');
-    sys.innerHTML=
-      'Platform: '+o.platform+'<br>Processor: '+o.processor+'<br>Python: '+o.python;
+    el('sysInfo').html='Platform: '+o.platform+'<br>Processor: '+o.processor+'<br>Python: '+o.python;
     const oi=el('ollamaInfo');
-    if(o.connected){
-      oi.innerHTML=
-        'Status: <span style="color:var(--green)">Connected</span><br>'+
-        'Model: '+o.model+(o.model_available?' <span style="color:var(--green)">&#x2713;</span>':' <span style="color:var(--red)">not found</span>')+'<br>'+
-        'Fast: '+o.fast_model+(o.fast_available?' <span style="color:var(--green)">&#x2713;</span>':' <span style="color:var(--red)">not found</span>')+'<br>'+
-        'Embed: '+o.embed_model+(o.embed_available?' <span style="color:var(--green)">&#x2713;</span>':' <span style="color:var(--red)">not found</span>');
-    }else{
-      oi.innerHTML='Status: <span style="color:var(--red)">Disconnected</span> (tried '+o.base_url+')';
-    }
+    if(o.connected){oi.innerHTML='Status: <span style="color:var(--green)">Connected</span><br>Model: '+o.model+(o.model_available?' <span style="color:var(--green)">&#x2713;</span>':' <span style="color:var(--red)">not found</span>')+'<br>Fast: '+o.fast_model+(o.fast_available?' <span style="color:var(--green)">&#x2713;</span>':' <span style="color:var(--red)">not found</span>')+'<br>Embed: '+o.embed_model+(o.embed_available?' <span style="color:var(--green)">&#x2713;</span>':' <span style="color:var(--red)">not found</span>')}
+    else{oi.innerHTML='Status: <span style="color:var(--red)">Disconnected</span> (tried '+o.base_url+')'}
     const gi=el('gpuInfo');
     gi.innerHTML=g.apple_silicon?'Backend: <span style="color:var(--green)">Metal (Apple Silicon)</span><br>Details: '+(g.details||'Apple Silicon')+(g.memory_gb?'<br>Memory: '+g.memory_gb+' GB':''):'Backend: '+g.backend;
   }catch(_){}
@@ -667,54 +630,51 @@ async function loadAbout(){
 
 // ── Pool ──
 const POOL_TOPIC_COLORS=['#60a5fa','#34d399','#fbbf24','#f87171','#c084fc','#22d3ee','#fb923c','#a78bfa'];
-let poolSim=null;
-
-function poolTopicColor(topics){
-  if(!topics||!topics.length)return POOL_TOPIC_COLORS[0];
-  const ci=topics.reduce((a,t)=>a+t.length,0)%POOL_TOPIC_COLORS.length;
-  return POOL_TOPIC_COLORS[ci];
-}
+function poolTopicColor(topics){if(!topics||!topics.length)return POOL_TOPIC_COLORS[0];const ci=topics.reduce((a,t)=>a+t.length,0)%POOL_TOPIC_COLORS.length;return POOL_TOPIC_COLORS[ci]}
 
 function switchPoolTab(tab,el_){
   document.querySelectorAll('.pool-subtab').forEach(t=>t.classList.remove('active'));
   el_.classList.add('active');
-  ['poolBrowse','poolList','poolGraph','poolTopics'].forEach(id=>{
-    const e=document.getElementById(id);
-    if(id==='poolG'+tab||id==='pool'+tab.charAt(0).toUpperCase()+tab.slice(1)){e.style.display='flex'}else{e.style.display='none'}
-  });
+  const ids={browse:'poolBrowse',list:'poolList',graph:'poolGraph',topics:'poolTopics'};
+  Object.entries(ids).forEach(([k,v])=>{el(v).style.display=k===tab?'flex':'none'});
   if(tab==='graph')loadPoolGraph();
   if(tab==='list')loadPoolList();
   if(tab==='topics')loadPoolTopics();
 }
 
-async function loadPool(){
-  try{
-    const data=await api('/api/pool');
-    renderPoolBrowse(data);
-    const n=Object.values(data).reduce((a,b)=>a+(b||[]).length,0);
-    el('poolBadge').textContent=n+' papers';
-  }catch(_){}
+async function loadPoolPanel(){
+  _poolStore=await api('/api/pool/papers');
+  updatePoolStats(_poolStore);
+  const data=await api('/api/pool');
+  renderPoolBrowse(data);
 }
 
-let _poolStore=[];
+async function loadPool(){
+  _poolStore=await api('/api/pool/papers');
+  const data=await api('/api/pool');
+  renderPoolBrowse(data);
+  const n=_poolStore.length;
+  el('poolBadge').textContent=n+' observed';
+  updatePoolStats(_poolStore);
+}
 
 function renderPoolBrowse(data){
   const c=el('poolBrowse');
-  if(!data||!Object.keys(data).length){c.innerHTML='<div style="color:var(--text3);text-align:center;padding:40px"><div style="font-size:28px;margin-bottom:8px">&#x1F30A;</div>Pool is populating...<br><span style="font-size:11px">Background refresh runs every 12h. Papers appear after the first fetch.</span></div>';return}
+  if(!data||!Object.keys(data).length){c.innerHTML='<div style="color:var(--text3);text-align:center;padding:40px"><div style="font-size:28px;margin-bottom:8px">&#x1F30A;</div>Pool is populating...<br><span style="font-size:11px">Background refresh runs every 12h.</span></div>';return}
   c.innerHTML=Object.entries(data).map(([topic,papers])=>{
     const col=poolTopicColor([topic]);
     return '<div class="pool-topic"><h3><span style="width:8px;height:8px;border-radius:2px;background:'+col+';display:inline-block"></span>'+esc(topic)+' <span class="count">'+(papers||[]).length+' papers</span></h3>'+
       (papers||[]).map(p=>{
-        const inStore=_poolStore.find(s=>s.arxiv_id===p.arxiv_id);
-        const imported=inStore&&inStore.imported;
-        const isNew=inStore&&inStore.is_new;
+        const ps=_poolStore.find(s=>s.arxiv_id===p.arxiv_id);
+        const imported=ps&&ps.imported;
+        const isNew=ps&&ps.is_new;
         return '<div class="pool-card"><div class="ptitle">'+esc(p.title)+'</div>'+
           '<div class="pmeta">'+esc(p.authors_str||(p.authors||[]).join(', '))+' &middot; '+p.published+(isNew?' <span class="pool-new-badge">NEW</span>':'')+'</div>'+
           '<div class="pabs" onclick="this.classList.toggle(\'expanded\')">'+esc(p.abstract||'')+'</div>'+
           '<div class="pactions">'+
           '<a href="https://arxiv.org/abs/'+p.arxiv_id+'" target="_blank">arXiv</a>'+
           '<a href="https://arxiv.org/pdf/'+p.arxiv_id+'" target="_blank">PDF</a>'+
-          (imported?'<span class="pool-imported">&#x2713; Imported</span>':'<a href="#" onclick="event.preventDefault();importPoolPaper(\''+p.arxiv_id+'\')">+ Add to KB</a>')+
+          (imported?'<span class="pool-imported">&#x2713; Imported</span>':'<button class="act" onclick="importPoolPaper(\''+p.arxiv_id+'\')">+ Add to KB</button>')+
           '</div></div>';
       }).join('')+'</div>';
   }).join('');
@@ -744,102 +704,65 @@ function updatePoolStats(papers){
 }
 
 async function importPoolPaper(aid){
+  addLog('Importing '+aid+' from pool...','INPROGRESS');
   try{
     const r=await api('/api/pool/import','POST',{arxiv_id:aid});
     if(r.status==='added'||r.status==='exists'){
+      addLog('Imported: '+aid,'DONE');
       loadPoolList();
       loadPoolGraph();
       refreshAll();
+    }else{
+      addLog('Import failed: '+(r.message||JSON.stringify(r)),'ERROR');
     }
-  }catch(_){}
+  }catch(e){addLog('Import error: '+e,'ERROR')}
 }
 
 // ── Pool Graph (D3) ──
 async function loadPoolGraph(){
-  try{
-    const data=await api('/api/pool/graph');
-    renderPoolGraph(data);
-  }catch(_){}
+  try{const data=await api('/api/pool/graph');renderPoolGraph(data)}catch(_){}
 }
-
 function renderPoolGraph(data){
-  const svg=d3.select('#poolGraphWrap svg');
-  svg.selectAll('*').remove();
+  const svg=d3.select('#poolGraphWrap svg');svg.selectAll('*').remove();
   const rect=document.getElementById('poolGraphWrap').getBoundingClientRect();
   const W=rect.width||800,H=Math.max(rect.height,300);
   svg.attr('viewBox',[0,0,W,H]);
   if(!data.nodes||!data.nodes.length){svg.append('text').attr('x',W/2).attr('y',H/2).attr('text-anchor','middle').attr('fill','var(--text3)').attr('font-size','13px').text('No pool graph data');return}
-
-  const links=data.edges.map(d=>({...d}));
-  const nodes=data.nodes.map(d=>({...d}));
-
-  const sim=d3.forceSimulation(nodes)
-    .force('link',d3.forceLink(links).id(d=>d.id).distance(120).strength(l=>l.similarity*2))
-    .force('charge',d3.forceManyBody().strength(-200))
-    .force('center',d3.forceCenter(W/2,H/2))
-    .force('collision',d3.forceCollide(35));
-
-  const link=svg.append('g').selectAll('line').data(links).join('line')
-    .attr('stroke','var(--border)').attr('stroke-width',l=>Math.max(.5,l.similarity*4)).attr('stroke-opacity',l=>Math.min(.8,.3+l.similarity));
-
-  const node=svg.append('g').selectAll('g').data(nodes).join('g')
-    .call(d3.drag().on('start',(e,d)=>{if(!e.active)sim.alphaTarget(.3).restart();d.fx=d.x;d.fy=d.y})
-      .on('drag',(e,d)=>{d.fx=e.x;d.fy=e.y})
-      .on('end',(e,d)=>{if(!e.active)sim.alphaTarget(0);d.fx=null;d.fy=null}));
-
-  node.append('rect').attr('width',10).attr('height',10).attr('x',-5).attr('y',-5).attr('rx',2)
-    .attr('fill',d=>poolTopicColor(d.topics))
-    .attr('stroke','rgba(255,255,255,.15)').attr('stroke-width',1.5);
-
+  const links=data.edges.map(d=>({...d})),nodes=data.nodes.map(d=>({...d}));
+  const sim=d3.forceSimulation(nodes).force('link',d3.forceLink(links).id(d=>d.id).distance(120).strength(l=>l.similarity*2)).force('charge',d3.forceManyBody().strength(-200)).force('center',d3.forceCenter(W/2,H/2)).force('collision',d3.forceCollide(35));
+  const link=svg.append('g').selectAll('line').data(links).join('line').attr('stroke','var(--border)').attr('stroke-width',l=>Math.max(.5,l.similarity*4)).attr('stroke-opacity',l=>Math.min(.8,.3+l.similarity));
+  const node=svg.append('g').selectAll('g').data(nodes).join('g').call(d3.drag().on('start',(e,d)=>{if(!e.active)sim.alphaTarget(.3).restart();d.fx=d.x;d.fy=d.y}).on('drag',(e,d)=>{d.fx=e.x;d.fy=e.y}).on('end',(e,d)=>{if(!e.active)sim.alphaTarget(0);d.fx=null;d.fy=null}));
+  node.append('rect').attr('width',10).attr('height',10).attr('x',-5).attr('y',-5).attr('rx',2).attr('fill',d=>poolTopicColor(d.topics)).attr('stroke','rgba(255,255,255,.15)').attr('stroke-width',1.5);
   node.filter(d=>d.is_new).append('text').text('!').attr('x',-5).attr('y',-8).attr('font-size','9px').attr('fill','var(--yellow)').attr('font-weight','700');
-
   node.append('text').text(d=>d.label?.substring(0,22)).attr('font-size','9px').attr('dx',12).attr('dy',3.5).attr('fill','var(--text2)');
-
   node.append('title').text(d=>d.label+(d.imported?' [Imported]':' [New]')+'\nTopics: '+(d.topics||[]).join(', '));
-
-  sim.on('tick',()=>{
-    link.attr('x1',d=>d.source.x).attr('y1',d=>d.source.y).attr('x2',d=>d.target.x).attr('y2',d=>d.target.y);
-    node.attr('transform',d=>'translate('+d.x+','+d.y+')');
-  });
+  sim.on('tick',()=>{link.attr('x1',d=>d.source.x).attr('y1',d=>d.source.y).attr('x2',d=>d.target.x).attr('y2',d=>d.target.y);node.attr('transform',d=>'translate('+d.x+','+d.y+')')});
 }
 
 // ── Pool Topics ──
 async function loadPoolTopics(){
   try{
-    const r=await api('/api/pool/topics');
-    const topics=r.topics||[];
-    const c=el('poolTopicList');
-    if(!topics.length){c.innerHTML='<div style="color:var(--text3);text-align:center;padding:20px">No topics configured</div>';return}
-    c.innerHTML=topics.map(t=>'<div class="paper-row"><div class="info"><h4>'+esc(t.name)+'</h4><div class="sub">arXiv query: '+esc(t.query)+'</div></div>'+
-      '<button class="btn btn-sm btn-outline" onclick="removePoolTopic(\''+esc(t.name).replace(/'/g,"\\'")+'\')">Remove</button></div>').join('');
+    const r=await api('/api/pool/topics');const topics=r.topics||[];
+    el('poolTopicList').innerHTML=topics.length?topics.map(t=>'<div class="paper-row"><div class="info"><h4>'+esc(t.name)+'</h4><div class="sub">arXiv query: '+esc(t.query)+'</div></div><button class="btn btn-sm btn-outline" onclick="removePoolTopic(\''+esc(t.name).replace(/'/g,"\\'")+'\')">Remove</button></div>').join(''):'<div style="color:var(--text3);text-align:center;padding:20px">No topics configured</div>';
   }catch(_){}
 }
-
 async function addPoolTopic(){
-  const name=el('poolTopicName').value.trim();
-  const query=el('poolTopicQuery').value.trim();
+  const name=el('poolTopicName').value.trim(),query=el('poolTopicQuery').value.trim();
   if(!name||!query)return;
   await api('/api/pool/topics/add','POST',{name,query});
-  el('poolTopicName').value='';el('poolTopicQuery').value='';
-  loadPoolTopics();
+  el('poolTopicName').value='';el('poolTopicQuery').value='';loadPoolTopics();
 }
-
 async function removePoolTopic(name){
   if(!confirm('Remove topic "'+name+'"?'))return;
-  await api('/api/pool/topics/remove','POST',{name});
-  loadPoolTopics();
+  await api('/api/pool/topics/remove','POST',{name});loadPoolTopics();
 }
 
 // ── Refresh ──
 async function refreshAll(){
   await Promise.all([loadHeaderStats(),loadGraph(),loadGpuStatus(),loadPoolList()]);
 }
-
 async function loadGraph(){
-  try{
-    gData=await api('/api/graph');
-    if(document.getElementById('panel-graph').classList.contains('active'))renderGraph(gData);
-  }catch(_){}
+  try{gData=await api('/api/graph');if(el('panel-graph').classList.contains('active'))renderGraph(gData)}catch(_){}
 }
 
 // ── Init ──
@@ -847,6 +770,7 @@ loadGpuStatus();
 loadHeaderStats();
 loadGraph();
 loadPoolList();
+fetchLogs();
 </script>
 </body>
 </html>

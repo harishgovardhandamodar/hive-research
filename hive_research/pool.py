@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import json
 import logging
-import os
+import sqlite3
 import threading
 import time
-from datetime import datetime, timedelta
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -34,74 +34,126 @@ TOPIC_COLORS = [
     "#c084fc", "#22d3ee", "#fb923c", "#a78bfa",
 ]
 
+SCHEMA = """
+CREATE TABLE IF NOT EXISTS topics (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL UNIQUE,
+    query TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS papers (
+    arxiv_id TEXT PRIMARY KEY,
+    title TEXT NOT NULL DEFAULT '',
+    authors TEXT NOT NULL DEFAULT '[]',
+    authors_str TEXT NOT NULL DEFAULT '',
+    published TEXT NOT NULL DEFAULT '',
+    abstract TEXT NOT NULL DEFAULT '',
+    categories TEXT NOT NULL DEFAULT '[]',
+    pdf_url TEXT NOT NULL DEFAULT '',
+    topics TEXT NOT NULL DEFAULT '[]',
+    tags TEXT NOT NULL DEFAULT '[]',
+    imported INTEGER NOT NULL DEFAULT 0,
+    imported_at TEXT,
+    first_seen TEXT NOT NULL,
+    last_seen TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_papers_last_seen ON papers(last_seen);
+CREATE INDEX IF NOT EXISTS idx_papers_imported ON papers(imported);
+
+CREATE TABLE IF NOT EXISTS cache (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL,
+    timestamp REAL NOT NULL
+);
+"""
+
 
 class ResearchPool:
     def __init__(self, store_dir: str | Path) -> None:
         self.store_dir = Path(store_dir)
         self.store_dir.mkdir(parents=True, exist_ok=True)
 
-        self._topics_path = self.store_dir / "pool_topics.json"
-        self._cache_path = self.store_dir / "pool_cache.json"
-        self._store_path = self.store_dir / "pool_store.json"
+        self._db_path = str(self.store_dir / "pool.db")
+        self._local = threading.local()
+        self._init_db()
 
         self._lock = threading.Lock()
-        self._store_lock = threading.Lock()
-        self._topics_lock = threading.Lock()
 
-        self._topics: list[dict[str, Any]] = self._load_topics()
-        self._store: dict[str, Any] = self._load_store()
-        self._cache: dict[str, Any] = self._load_cache()
+        if not self._has_topics():
+            self._seed_default_topics()
 
         self._bg_thread = threading.Thread(target=self._bg_loop, daemon=True)
         self._bg_thread.start()
 
+    # ── DB connection (thread-local) ────────────────────────────────
+
+    @property
+    def _db(self) -> sqlite3.Connection:
+        if not hasattr(self._local, "conn") or self._local.conn is None:
+            conn = sqlite3.connect(self._db_path, check_same_thread=False)
+            conn.row_factory = sqlite3.Row
+            conn.execute("PRAGMA journal_mode=WAL")
+            conn.execute("PRAGMA synchronous=NORMAL")
+            self._local.conn = conn
+        return self._local.conn
+
+    def _init_db(self) -> None:
+        conn = sqlite3.connect(self._db_path, check_same_thread=False)
+        conn.executescript(SCHEMA)
+        conn.commit()
+        conn.close()
+
+    def _has_topics(self) -> bool:
+        row = self._db.execute("SELECT COUNT(*) AS cnt FROM topics").fetchone()
+        return row["cnt"] > 0
+
+    def _seed_default_topics(self) -> None:
+        now = datetime.utcnow().isoformat()
+        for t in DEFAULT_TOPICS:
+            self._db.execute(
+                "INSERT OR IGNORE INTO topics (name, query, created_at) VALUES (?, ?, ?)",
+                (t["name"], t["query"], now),
+            )
+        self._db.commit()
+
     # ── Topic management ───────────────────────────────────────────
 
     def get_topics(self) -> list[dict[str, Any]]:
-        with self._topics_lock:
-            return [dict(t) for t in self._topics]
+        rows = self._db.execute(
+            "SELECT name, query FROM topics ORDER BY id"
+        ).fetchall()
+        return [{"name": r["name"], "query": r["query"]} for r in rows]
 
     def add_topic(self, name: str, query: str, **kwargs: Any) -> None:
-        with self._topics_lock:
-            self._topics = [t for t in self._topics if t.get("name") != name]
-            topic: dict[str, Any] = {"name": name, "query": query}
-            topic.update(kwargs)
-            self._topics.append(topic)
-            self._save_topics()
+        with self._lock:
+            self._db.execute(
+                "DELETE FROM topics WHERE name = ?", (name,)
+            )
+            self._db.execute(
+                "INSERT INTO topics (name, query) VALUES (?, ?)",
+                (name, query),
+            )
+            self._db.commit()
 
     def remove_topic(self, name: str) -> None:
-        with self._topics_lock:
-            self._topics = [t for t in self._topics if t.get("name") != name]
-            self._save_topics()
-
-    def _load_topics(self) -> list[dict[str, Any]]:
-        if self._topics_path.exists():
-            try:
-                with open(self._topics_path) as f:
-                    data = json.load(f)
-                    if isinstance(data, list) and data:
-                        return data
-            except Exception:
-                pass
-        return [dict(t) for t in DEFAULT_TOPICS]
-
-    def _save_topics(self) -> None:
-        tmp = self._topics_path.with_suffix(".tmp")
-        with open(tmp, "w") as f:
-            json.dump(self._topics, f, indent=2)
-        os.replace(tmp, self._topics_path)
+        with self._lock:
+            self._db.execute("DELETE FROM topics WHERE name = ?", (name,))
+            self._db.commit()
 
     # ── arXiv feed (cached) ────────────────────────────────────────
 
     def get(self) -> dict[str, Any]:
-        with self._lock:
-            ts = self._cache.get("timestamp", 0)
-            age = time.time() - ts
-            if age < CACHE_TTL and self._cache.get("data"):
-                return self._cache["data"]
+        row = self._db.execute(
+            "SELECT value, timestamp FROM cache WHERE key = 'feed'"
+        ).fetchone()
+        age = time.time() - (row["timestamp"] if row else 0) if row else float("inf")
+        if row and age < CACHE_TTL:
+            return json.loads(row["value"])
         if age > CACHE_TTL:
             self._bg_refresh()
-        return self._cache.get("data", {})
+        return json.loads(row["value"]) if row else {}
 
     def refresh(self) -> dict[str, Any]:
         return self._do_refresh()
@@ -112,13 +164,18 @@ class ResearchPool:
     def _do_refresh(self) -> dict[str, Any]:
         try:
             data = self._fetch_all()
-            with self._lock:
-                self._cache = {"timestamp": time.time(), "data": data}
-                self._save_cache()
+            self._db.execute(
+                "INSERT OR REPLACE INTO cache (key, value, timestamp) VALUES ('feed', ?, ?)",
+                (json.dumps(data), time.time()),
+            )
+            self._db.commit()
             return data
         except Exception as e:
             logger.error("Pool refresh failed: %s", e)
-            return self._cache.get("data", {})
+            row = self._db.execute(
+                "SELECT value FROM cache WHERE key = 'feed'"
+            ).fetchone()
+            return json.loads(row["value"]) if row else {}
 
     def _fetch_all(self) -> dict[str, Any]:
         topics = self.get_topics()
@@ -149,7 +206,6 @@ class ResearchPool:
             except Exception as e:
                 logger.warning("Pool topic '%s' fetch failed: %s", name, e)
                 result[name] = []
-        self._save_store()
         return result
 
     def _bg_loop(self) -> None:
@@ -164,55 +220,75 @@ class ResearchPool:
     def _observe(self, entry: dict[str, Any], topic: str) -> None:
         aid = entry["arxiv_id"]
         now = datetime.utcnow().isoformat()
-        with self._store_lock:
-            if aid in self._store:
-                rec = self._store[aid]
-                if topic not in rec.get("topics", []):
-                    rec.setdefault("topics", []).append(topic)
-                rec["last_seen"] = now
+        with self._lock:
+            row = self._db.execute(
+                "SELECT topics, imported FROM papers WHERE arxiv_id = ?", (aid,)
+            ).fetchone()
+            if row:
+                topics = json.loads(row["topics"])
+                if topic not in topics:
+                    topics.append(topic)
+                self._db.execute(
+                    "UPDATE papers SET topics = ?, last_seen = ? WHERE arxiv_id = ?",
+                    (json.dumps(topics), now, aid),
+                )
             else:
-                self._store[aid] = {
-                    "arxiv_id": aid,
-                    "title": entry.get("title", ""),
-                    "authors": entry.get("authors", []),
-                    "authors_str": entry.get("authors_str", ""),
-                    "published": entry.get("published", ""),
-                    "abstract": entry.get("abstract", "")[:500],
-                    "categories": entry.get("categories", []),
-                    "pdf_url": entry.get("pdf_url", ""),
-                    "topics": [topic],
-                    "tags": [],
-                    "imported": False,
-                    "imported_at": None,
-                    "first_seen": now,
-                    "last_seen": now,
-                }
+                self._db.execute(
+                    "INSERT INTO papers (arxiv_id, title, authors, authors_str, "
+                    "published, abstract, categories, pdf_url, topics, first_seen, last_seen) "
+                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    (
+                        aid,
+                        entry.get("title", ""),
+                        json.dumps(entry.get("authors", [])),
+                        entry.get("authors_str", ""),
+                        entry.get("published", ""),
+                        entry.get("abstract", "")[:500],
+                        json.dumps(entry.get("categories", [])),
+                        entry.get("pdf_url", ""),
+                        json.dumps([topic]),
+                        now,
+                        now,
+                    ),
+                )
+            self._db.commit()
 
     def get_observed_papers(self) -> list[dict[str, Any]]:
-        with self._store_lock:
-            papers = list(self._store.values())
-        papers.sort(key=lambda p: p.get("last_seen", ""), reverse=True)
+        rows = self._db.execute(
+            "SELECT * FROM papers ORDER BY last_seen DESC"
+        ).fetchall()
         now_ts = time.time()
-        for p in papers:
+        papers = []
+        for r in rows:
+            p = dict(r)
+            p["authors"] = json.loads(p.get("authors", "[]"))
+            p["categories"] = json.loads(p.get("categories", "[]"))
+            p["topics"] = json.loads(p.get("topics", "[]"))
+            p["tags"] = json.loads(p.get("tags", "[]"))
+            p["imported"] = bool(p["imported"])
             fs = p.get("first_seen")
             try:
                 p["is_new"] = fs and (now_ts - datetime.fromisoformat(fs).timestamp()) < 86400
             except Exception:
                 p["is_new"] = False
+            papers.append(p)
         return papers
 
     def mark_imported(self, arxiv_id: str) -> None:
-        with self._store_lock:
-            if arxiv_id in self._store:
-                self._store[arxiv_id]["imported"] = True
-                self._store[arxiv_id]["imported_at"] = datetime.utcnow().isoformat()
-                self._save_store()
+        with self._lock:
+            self._db.execute(
+                "UPDATE papers SET imported = 1, imported_at = ? WHERE arxiv_id = ?",
+                (datetime.utcnow().isoformat(), arxiv_id),
+            )
+            self._db.commit()
 
     def update_tags(self, arxiv_id: str, tags: list[str]) -> None:
-        with self._store_lock:
-            if arxiv_id in self._store:
-                self._store[arxiv_id]["tags"] = tags
-                self._save_store()
+        with self._lock:
+            self._db.execute(
+                "UPDATE papers SET tags = ? WHERE arxiv_id = ?",
+                (json.dumps(tags), arxiv_id),
+            )
+            self._db.commit()
 
     # ── Pool graph (Jaccard similarity) ────────────────────────────
 
@@ -244,35 +320,3 @@ class ResearchPool:
                         "similarity": round(score, 4),
                     })
         return {"nodes": nodes, "edges": edges}
-
-    # ── Persistence ────────────────────────────────────────────────
-
-    def _load_store(self) -> dict[str, Any]:
-        if self._store_path.exists():
-            try:
-                with open(self._store_path) as f:
-                    return json.load(f)
-            except Exception:
-                pass
-        return {}
-
-    def _save_store(self) -> None:
-        tmp = self._store_path.with_suffix(".tmp")
-        with open(tmp, "w") as f:
-            json.dump(self._store, f, indent=2)
-        os.replace(tmp, self._store_path)
-
-    def _load_cache(self) -> dict[str, Any]:
-        if self._cache_path.exists():
-            try:
-                with open(self._cache_path) as f:
-                    return json.load(f)
-            except Exception:
-                pass
-        return {"timestamp": 0, "data": {}}
-
-    def _save_cache(self) -> None:
-        tmp = self._cache_path.with_suffix(".tmp")
-        with open(tmp, "w") as f:
-            json.dump(self._cache, f, indent=2)
-        os.replace(tmp, self._cache_path)

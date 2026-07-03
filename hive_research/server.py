@@ -10,6 +10,7 @@ from typing import Any
 
 import requests
 
+from .logs import get_capture
 from .organizer import Organizer
 
 logger = logging.getLogger(__name__)
@@ -86,6 +87,9 @@ class RouteHandler(BaseHTTPRequestHandler):
             self._handle_ollama_status()
         elif path == "/api/gpu":
             self._handle_gpu_status()
+        elif path == "/api/logs":
+            n = int(params.get("n", 100))
+            _json_response(self, get_capture().get_recent(n))
         elif path == "/api/pool":
             data = self.org.pool.get()
             _json_response(self, data)
@@ -229,6 +233,7 @@ def run_server(
     host: str = "127.0.0.1",
     port: int = 7777,
 ) -> None:
+    get_capture()
     RouteHandler.org = org
     server = HTTPServer((host, port), RouteHandler)
     logger.info("Server listening on http://%s:%d", host, port)
