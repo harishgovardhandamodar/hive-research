@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.backends._legacy:_Backend"
+
+[project]
+name = "hive-research"
+version = "0.1.0"
+description = "Lightweight research knowledge base — Apple Silicon + Ollama + Hive datatype"
+license = {text = "MIT"}
+requires-python = ">=3.12"
+dependencies = [
+    "arxiv>=2.1.0",
+    "PyMuPDF>=1.25.0",
+    "requests>=2.32.0",
+    "PyYAML>=6.0.0",
+    "numpy>=1.24.0",
+]
+
+[tool.setuptools.packages.find]
+include = ["hive_research*"]

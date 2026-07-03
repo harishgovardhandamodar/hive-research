@@ -1,0 +1,29 @@
+directories:
+  root: ./data
+  papers: ./data/papers
+  graph: ./data/graph
+  vault: ./data/vault
+
+arxiv:
+  download_pdf: true
+  max_results: 10
+
+ollama:
+  base_url: http://localhost:11434
+  model: qwen3.6:35b-mlx
+  fast_model: llama3.2:3b
+  embed_model: nomic-embed-text
+  max_tokens: 8192
+  temperature: 0.1
+
+graph:
+  similarity_threshold: 0.85
+
+rag:
+  chunk_size: 512
+  chunk_overlap: 64
+  top_k: 5
+
+server:
+  host: 127.0.0.1
+  port: 8080
