@@ -6,160 +6,609 @@
 <title>Hive Research</title>
 <script src="https://d3js.org/d3.v7.min.js"></script>
 <style>
+:root {
+  --bg: #0a0e17;
+  --surface: #111827;
+  --surface2: #1e293b;
+  --border: #1e3a5f;
+  --text: #e2e8f0;
+  --text2: #94a3b8;
+  --text3: #64748b;
+  --accent: #60a5fa;
+  --accent2: #818cf8;
+  --green: #34d399;
+  --red: #f87171;
+  --yellow: #fbbf24;
+  --purple: #c084fc;
+  --cyan: #22d3ee;
+  --radius: 10px;
+  --shadow: 0 4px 24px rgba(0,0,0,.5);
+}
 *{margin:0;padding:0;box-sizing:border-box}
-body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f5f5f5;color:#333;padding:20px}
-h1{font-size:1.5rem;margin-bottom:16px;color:#1a1a2e}
-.card{background:white;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.1);padding:16px;margin-bottom:16px}
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px}
-button{background:#1a1a2e;color:white;border:none;padding:8px 16px;border-radius:4px;cursor:pointer;font-size:0.9rem}
-button:hover{background:#16213e}
-input{width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;margin-bottom:8px;font-size:0.9rem}
-#graph svg{width:100%;height:500px;border-radius:4px}
-.stat{display:inline-block;margin:8px 16px 8px 0;font-size:0.9rem}
-.stat span{font-weight:700;color:#1a1a2e}
-#output{background:#1a1a2e;color:#e0e0e0;padding:12px;border-radius:4px;font-family:monospace;font-size:0.85rem;max-height:300px;overflow-y:auto;white-space:pre-wrap;margin-top:8px}
-.tabs{display:flex;gap:8px;margin-bottom:12px}
-.tab{padding:6px 14px;border-radius:4px;cursor:pointer;background:#eee;font-size:0.85rem}
-.tab.active{background:#1a1a2e;color:white}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Oxygen,sans-serif;background:var(--bg);color:var(--text);height:100vh;overflow:hidden;font-size:13.5px}
+::-webkit-scrollbar{width:5px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+input,textarea,select{font-family:inherit;font-size:inherit}
+
+.app{display:flex;flex-direction:column;height:100vh}
+.header{background:var(--surface);border-bottom:1px solid var(--border);padding:10px 20px;display:flex;align-items:center;gap:16px;flex-shrink:0}
+.header .logo{width:26px;height:26px;background:linear-gradient(135deg,var(--accent),var(--accent2));border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:13px;color:#0a0e17;font-weight:800;flex-shrink:0}
+.header h1{font-size:16px;font-weight:700;letter-spacing:-.3px;white-space:nowrap}
+.header .stats{display:flex;gap:14px;margin-left:auto;font-size:11px}
+.header .stats .s{display:flex;align-items:center;gap:4px;background:var(--bg);padding:3px 10px;border-radius:12px;border:1px solid var(--border)}
+.header .stats .s .dot{width:6px;height:6px;border-radius:50%}
+.header .stats .s strong{font-size:12px;min-width:12px;text-align:center}
+.dot.p{background:var(--accent)}.dot.c{background:var(--purple)}.dot.e{background:var(--yellow)}
+#gpuStatus{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text3);padding:3px 10px;border:1px solid var(--border);border-radius:12px;background:var(--bg);cursor:pointer}
+
+.body{display:flex;flex:1;overflow:hidden}
+.sidebar{width:48px;min-width:48px;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;align-items:center;padding:8px 0;gap:2px;flex-shrink:0}
+.sidebar .nav-item{width:36px;height:36px;display:flex;align-items:center;justify-content:center;border-radius:8px;cursor:pointer;color:var(--text3);font-size:16px;transition:all .15s;position:relative}
+.sidebar .nav-item:hover{color:var(--text2);background:var(--surface2)}
+.sidebar .nav-item.active{color:var(--accent);background:rgba(96,165,250,.12)}
+.sidebar .nav-item .tip{position:absolute;left:52px;top:50%;transform:translateY(-50%);background:var(--surface2);color:var(--text);padding:4px 10px;border-radius:5px;font-size:11px;white-space:nowrap;opacity:0;pointer-events:none;transition:opacity .15s;z-index:100;border:1px solid var(--border)}
+.sidebar .nav-item:hover .tip{opacity:1}
+.sidebar .spacer{flex:1}
+
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden;padding:0}
+.panel{display:none;flex-direction:column;height:100%;overflow:hidden}
+.panel.active{display:flex}
+
+.panel-header{padding:14px 20px 10px;border-bottom:1px solid var(--border);flex-shrink:0}
+.panel-header h2{font-size:15px;font-weight:600;display:flex;align-items:center;gap:8px}
+.panel-header h2 .badge{background:var(--surface2);color:var(--text2);font-size:10px;padding:1px 8px;border-radius:8px;font-weight:500}
+.panel-body{padding:16px 20px;flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:12px}
+
+input,textarea,select{padding:9px 12px;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg);color:var(--text);outline:none;width:100%;transition:border .15s}
+input:focus,textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(96,165,250,.1)}
+textarea{resize:vertical;min-height:60px;font-family:inherit}
+.btn{background:var(--accent);color:#0a0e17;border:none;padding:8px 16px;border-radius:var(--radius);cursor:pointer;font-size:12px;font-weight:600;transition:all .15s;display:inline-flex;align-items:center;gap:6px}
+.btn:hover{filter:brightness(1.15)}
+.btn:active{transform:scale(.97)}
+.btn-sm{padding:5px 10px;font-size:11px}
+.btn-outline{background:transparent;border:1px solid var(--border);color:var(--text2)}
+.btn-outline:hover{background:var(--surface2);color:var(--text)}
+.btn-group{display:flex;gap:8px;flex-wrap:wrap}
+.btn-success{background:var(--green);color:#0a0e17}
+.btn-warn{background:var(--yellow);color:#0a0e17}
+
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px}
+.card-header{font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px}
+
+#log{background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:10px;font-family:'SF Mono',Menlo,monospace;font-size:11px;color:var(--text2);max-height:160px;overflow-y:auto;white-space:pre-wrap;flex-shrink:0;min-height:50px;line-height:1.6}
+#log .error{color:var(--red)}
+#log .done{color:var(--green)}
+#log .warn{color:var(--yellow)}
+#log .info{color:var(--accent)}
+
+#graphWrap{flex:1;position:relative;min-height:300px;background:var(--bg);border-radius:var(--radius);border:1px solid var(--border);overflow:hidden}
+#graphWrap svg{width:100%;height:100%;display:block}
+#graphEmpty{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;color:var(--text3);pointer-events:none}
+#graphEmpty .icon{font-size:32px;margin-bottom:8px}
+#graphFilter{position:absolute;top:10px;right:10px;width:180px;z-index:10}
+#graphLegend{position:absolute;bottom:10px;left:10px;display:flex;gap:12px;font-size:10px;color:var(--text3);z-index:10;background:var(--surface);padding:6px 12px;border-radius:6px;border:1px solid var(--border)}
+#graphLegend .l{display:flex;align-items:center;gap:4px}
+#graphLegend .sw{width:8px;height:8px;border-radius:2px}
+#graphLegend .sw.cir{border-radius:50%}
+#tooltip{position:absolute;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-size:11px;max-width:320px;pointer-events:none;opacity:0;transition:opacity .15s;z-index:50;box-shadow:var(--shadow);line-height:1.5}
+
+.result-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:12px;cursor:pointer;transition:all .15s}
+.result-card:hover{border-color:var(--text3)}
+.result-card.selected{border-color:var(--accent);background:rgba(96,165,250,.06)}
+.result-card h4{font-size:13px;font-weight:600;margin-bottom:3px;color:var(--accent)}
+.result-card .meta{font-size:11px;color:var(--text3);margin-bottom:4px}
+.result-card .abs{font-size:11px;color:var(--text2);display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.result-card .cats{display:flex;gap:4px;flex-wrap:wrap;margin-top:6px}
+.result-card .cats span{background:var(--surface2);padding:1px 6px;border-radius:4px;font-size:10px;color:var(--text3)}
+
+.chat{flex:1;display:flex;flex-direction:column;gap:0;overflow:hidden}
+.chat-msgs{flex:1;overflow-y:auto;padding:12px 0;display:flex;flex-direction:column;gap:8px}
+.chat-msg{max-width:85%;padding:10px 14px;border-radius:12px;font-size:12.5px;line-height:1.6;animation:fadeIn .2s}
+.chat-msg.user{background:var(--accent);color:#0a0e17;align-self:flex-end;border-bottom-right-radius:4px}
+.chat-msg.assistant{background:var(--surface2);border:1px solid var(--border);align-self:flex-start;border-bottom-left-radius:4px;color:var(--text)}
+.chat-msg .src{font-size:10px;color:var(--text3);margin-top:4px}
+.chat-msg .src a{color:var(--accent);text-decoration:none}
+.chat-input{display:flex;gap:8px;padding:10px 0 0;flex-shrink:0}
+.chat-input input{flex:1}
+.chat-msg.typing{opacity:.6}
+@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.stat-card{text-align:center;padding:16px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius)}
+.stat-card .num{font-size:28px;font-weight:700;color:var(--accent);line-height:1.2}
+.stat-card .lbl{font-size:11px;color:var(--text3);margin-top:4px}
+
+.sim-table{width:100%;border-collapse:collapse;font-size:12px}
+.sim-table th,.sim-table td{padding:6px 10px;border-bottom:1px solid var(--border);text-align:left}
+.sim-table th{color:var(--text3);font-size:10px;text-transform:uppercase;letter-spacing:.5px;font-weight:600}
+.sim-table tr:hover td{background:var(--surface2)}
+.sim-score{display:inline-block;padding:1px 8px;border-radius:4px;font-weight:600;font-size:11px}
+.sim-score.high{background:rgba(52,211,153,.15);color:var(--green)}
+.sim-score.med{background:rgba(251,191,36,.15);color:var(--yellow)}
+.sim-score.low{background:rgba(248,113,113,.15);color:var(--red)}
+
+.tabs{display:flex;gap:2px;border-bottom:1px solid var(--border);padding:0;margin-bottom:12px;flex-shrink:0}
+.tab{padding:8px 16px;cursor:pointer;font-size:12px;font-weight:500;color:var(--text3);border-bottom:2px solid transparent;transition:all .15s;user-select:none}
+.tab:hover{color:var(--text2)}
+.tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+.tab-content{display:none}
+.tab-content.active{display:block}
+
+.paper-row{display:flex;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);gap:10px}
+.paper-row:last-child{border-bottom:none}
+.paper-row .info{flex:1;min-width:0}
+.paper-row .info h4{font-size:12.5px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.paper-row .info .sub{font-size:11px;color:var(--text3)}
+.concept-tag{display:inline-flex;align-items:center;gap:4px;background:rgba(192,132,252,.12);color:var(--purple);padding:2px 8px;border-radius:4px;font-size:11px;margin:2px}
 </style>
 </head>
 <body>
-<h1>Hive Research</h1>
-<div class="grid">
-<div class="card">
-  <h3>Knowledge Graph</h3>
-  <div id="graph"><svg></svg></div>
-  <div id="stats"></div>
+<div class="app">
+<div class="header">
+  <div class="logo">H</div>
+  <h1>Hive Research</h1>
+  <div class="stats" id="headerStats"></div>
+  <div id="gpuStatus" onclick="loadGpuStatus()" title="Apple Silicon GPU">&#63743; Metal</div>
 </div>
-<div class="card">
-  <div class="tabs">
-    <div class="tab active" onclick="switchTab('add')">Add Paper</div>
-    <div class="tab" onclick="switchTab('search')">Search</div>
-    <div class="tab" onclick="switchTab('query')">RAG Query</div>
+<div class="body">
+<div class="sidebar" id="sidebar">
+  <div class="nav-item active" data-panel="graph" onclick="switchPanel('graph')">
+    &#x25E1;<span class="tip">Graph</span>
   </div>
-  <div id="tab-add">
-    <input id="arxiv-id" placeholder="arXiv ID (e.g. 1706.03762)">
-    <button onclick="addPaper()">Add Paper</button>
+  <div class="nav-item" data-panel="add" onclick="switchPanel('add')">
+    &#x271A;<span class="tip">Add Paper</span>
   </div>
-  <div id="tab-search" style="display:none">
-    <input id="search-query" placeholder="Search query (e.g. attention mechanism)">
-    <button onclick="searchArxiv()">Search</button>
-    <button onclick="importSearch()" style="margin-left:8px">Import All</button>
+  <div class="nav-item" data-panel="search" onclick="switchPanel('search')">
+    &#x2315;<span class="tip">Search</span>
   </div>
-  <div id="tab-query" style="display:none">
-    <input id="rag-question" placeholder="Ask a question about your papers">
-    <button onclick="askRag()">Ask</button>
+  <div class="nav-item" data-panel="browse" onclick="switchPanel('browse')">
+    &#x2630;<span class="tip">Browse</span>
   </div>
-  <div id="output">Ready</div>
+  <div class="nav-item" data-panel="similarity" onclick="switchPanel('similarity')">
+    &#x2248;<span class="tip">Similarity</span>
+  </div>
+  <div class="nav-item" data-panel="query" onclick="switchPanel('query')">
+    &#x1F4AC;<span class="tip">Chat</span>
+  </div>
+  <div class="spacer"></div>
+  <div class="nav-item" data-panel="about" onclick="switchPanel('about')">
+    &#x2139;<span class="tip">About</span>
+  </div>
 </div>
+<div class="main">
+
+<!-- ── Graph Panel ── -->
+<div class="panel active" id="panel-graph">
+  <div class="panel-header"><h2>Knowledge Graph <span class="badge" id="graphBadge">0 nodes</span></h2></div>
+  <div class="panel-body" style="padding-top:8px">
+    <div id="graphWrap">
+      <svg></svg>
+      <div id="graphEmpty"><div class="icon">&#x1F4DA;</div>No papers yet &mdash; add one to get started</div>
+      <input id="graphFilter" class="tab" placeholder="Filter nodes..." oninput="applyFilter(this.value)">
+      <div id="graphLegend">
+        <div class="l"><div class="sw" style="background:var(--accent)"></div> Paper</div>
+        <div class="l"><div class="sw cir" style="background:var(--purple)"></div> Concept</div>
+      </div>
+      <div id="tooltip"></div>
+    </div>
+  </div>
 </div>
+
+<!-- ── Add Panel ── -->
+<div class="panel" id="panel-add">
+  <div class="panel-header"><h2>Add Paper</h2></div>
+  <div class="panel-body">
+    <div class="card">
+      <div class="card-header">arXiv ID or URL</div>
+      <div class="btn-group" style="margin-bottom:8px">
+        <input id="arxivInput" placeholder="e.g. 1706.03762 or https://arxiv.org/abs/..." onkeydown="if(event.key==='Enter')addPaper()">
+      </div>
+      <button class="btn" onclick="addPaper()">&#x271A; Add Paper</button>
+    </div>
+    <div id="log">Ready</div>
+  </div>
+</div>
+
+<!-- ── Search Panel ── -->
+<div class="panel" id="panel-search">
+  <div class="panel-header"><h2>Search <span class="badge">arXiv</span></h2></div>
+  <div class="panel-body">
+    <div class="card">
+      <div class="card-header">Search Query</div>
+      <div class="btn-group" style="margin-bottom:8px">
+        <input id="searchInput" placeholder="e.g. transformer attention mechanism" onkeydown="if(event.key==='Enter')searchArxiv()">
+      </div>
+      <div class="btn-group">
+        <button class="btn" onclick="searchArxiv()">&#x2315; Search</button>
+        <button class="btn btn-success" onclick="importSearch()" id="importBtn" style="display:none">&#x2193; Import All Results</button>
+      </div>
+    </div>
+    <div id="searchResults" style="display:flex;flex-direction:column;gap:8px;min-height:0"></div>
+    <div id="log" style="flex-shrink:0">Ready</div>
+  </div>
+</div>
+
+<!-- ── Browse Panel ── -->
+<div class="panel" id="panel-browse">
+  <div class="panel-header"><h2>Browse <span class="badge" id="browseBadge"></span></h2></div>
+  <div class="panel-body" style="padding-top:8px">
+    <div class="tabs">
+      <div class="tab active" onclick="switchBrowseTab('papers',this)">Papers</div>
+      <div class="tab" onclick="switchBrowseTab('concepts',this)">Concepts</div>
+    </div>
+    <div id="browsePapers" class="tab-content active"></div>
+    <div id="browseConcepts" class="tab-content"></div>
+  </div>
+</div>
+
+<!-- ── Similarity Panel ── -->
+<div class="panel" id="panel-similarity">
+  <div class="panel-header"><h2>Similarity <span class="badge">Jaccard</span></h2></div>
+  <div class="panel-body" style="padding-top:8px">
+    <div class="btn-group" style="margin-bottom:8px">
+      <button class="btn" onclick="loadSimilarity()">&#x2248; Compute Paper Similarity</button>
+    </div>
+    <div id="simResults"></div>
+    <div id="log">Ready</div>
+  </div>
+</div>
+
+<!-- ── Query/Chat Panel ── -->
+<div class="panel" id="panel-query">
+  <div class="panel-header"><h2>Chat <span class="badge">RAG</span></h2></div>
+  <div class="panel-body" style="padding-top:8px;overflow:hidden">
+    <div class="chat">
+      <div class="chat-msgs" id="chatMsgs">
+        <div class="chat-msg assistant">Ask a question about your papers. I'll search the knowledge base and answer with citations.</div>
+      </div>
+      <div class="chat-input">
+        <input id="chatInput" placeholder="Ask anything..." onkeydown="if(event.key==='Enter')askRag()">
+        <button class="btn" onclick="askRag()">Ask</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── About Panel ── -->
+<div class="panel" id="panel-about">
+  <div class="panel-header"><h2>About <span class="badge">System</span></h2></div>
+  <div class="panel-body">
+    <div class="grid-2">
+      <div class="stat-card"><div class="num" id="aboutPapers">0</div><div class="lbl">Papers</div></div>
+      <div class="stat-card"><div class="num" id="aboutConcepts">0</div><div class="lbl">Concepts</div></div>
+      <div class="stat-card"><div class="num" id="aboutEdges">0</div><div class="lbl">Relations</div></div>
+      <div class="stat-card"><div class="num" id="aboutChunks">0</div><div class="lbl">RAG Chunks</div></div>
+    </div>
+    <div class="card">
+      <div class="card-header">System</div>
+      <div id="sysInfo" style="font-size:12px;color:var(--text2);line-height:1.8"></div>
+    </div>
+    <div class="card">
+      <div class="card-header">Ollama</div>
+      <div id="ollamaInfo" style="font-size:12px;color:var(--text2);line-height:1.8"></div>
+    </div>
+    <div class="card">
+      <div class="card-header">GPU</div>
+      <div id="gpuInfo" style="font-size:12px;color:var(--text2);line-height:1.8"></div>
+    </div>
+  </div>
+</div>
+
+</div></div></div>
+
 <script>
+// ── State ──
 let gData = {nodes:[],links:[]};
 let simulation = null;
+let searchResults = [];
 
-function log(msg){document.getElementById('output').textContent = msg}
-function switchTab(name){
-  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
-  document.querySelectorAll('[id^="tab-"]').forEach(d=>d.style.display='none');
-  document.getElementById('tab-'+name).style.display='block';
-  event.target.classList.add('active');
-}
+// ── Helpers ──
+function log(msg,cls=''){const e=document.getElementById('log');if(!e)return;const d=document.createElement('div');if(cls)d.className=cls;d.textContent=msg;e.appendChild(d);e.scrollTop=e.scrollHeight}
+function el(id){return document.getElementById(id)}
 
-async function fetchJSON(url,method='GET',body=null){
-  const opts = {method,headers:{'Content-Type':'application/json'}};
-  if(body) opts.body = JSON.stringify(body);
-  const r = await fetch(url,opts);
+async function api(path,method='GET',body=null){
+  const opts={method,headers:{'Content-Type':'application/json'}};
+  if(body) opts.body=JSON.stringify(body);
+  const r=await fetch(path,opts);
   return r.json();
 }
 
-async function loadGraph(){
-  const data = await fetchJSON('/api/graph');
-  gData = data;
-  renderGraph(data);
-  const stats = await fetchJSON('/api/stats');
-  document.getElementById('stats').innerHTML =
-    Object.entries(stats).filter(([k])=>k!=='rag').map(([k,v])=>`<div class="stat"><span>${k}:</span> ${v}</div>`).join('');
-}
-async function addPaper(){
-  const id = document.getElementById('arxiv-id').value.trim();
-  if(!id) return;
-  log('Adding paper '+id+'...');
-  const r = await fetchJSON('/api/add','POST',{id});
-  log(JSON.stringify(r,null,2));
-  loadGraph();
-}
-async function searchArxiv(){
-  const q = document.getElementById('search-query').value.trim();
-  if(!q) return;
-  log('Searching...');
-  const r = await fetchJSON('/api/search','POST',{query:q});
-  log(r.map(p=>'['+p.arxiv_id+'] '+p.title).join('\n'));
-}
-async function importSearch(){
-  const q = document.getElementById('search-query').value.trim();
-  if(!q) return;
-  log('Importing...');
-  const r = await fetchJSON('/api/import','POST',{query:q});
-  log(JSON.stringify(r,null,2));
-  loadGraph();
-}
-async function askRag(){
-  const q = document.getElementById('rag-question').value.trim();
-  if(!q) return;
-  log('Thinking...');
-  const r = await fetchJSON('/api/query','POST',{question:q});
-  log('Answer: '+r.answer+'\n\nSources: '+(r.sources||[]).map(s=>s.title).join(', '));
+function esc(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML}
+
+// ── Panel Switching ──
+function switchPanel(name){
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById('panel-'+name).classList.add('active');
+  document.querySelector('.nav-item[data-panel="'+name+'"]').classList.add('active');
+  if(name==='graph'&&gData.nodes)renderGraph(gData);
+  if(name==='browse')loadBrowse();
+  if(name==='about')loadAbout();
 }
 
+// ── GPU Status ──
+async function loadGpuStatus(){
+  try{
+    const g=await api('/api/gpu');
+    const e=el('gpuStatus');
+    if(g.apple_silicon){e.innerHTML='&#63743; Metal';e.title=g.details||'Apple Silicon'}
+    else{e.innerHTML='&#x1F5A5; CPU';e.title='No GPU acceleration'}
+  }catch(_){}
+}
+
+// ── Header Stats ──
+async function loadHeaderStats(){
+  try{
+    const s=await api('/api/stats');
+    el('headerStats').innerHTML=
+      '<div class="s"><div class="dot p"></div><strong>'+(s.papers||0)+'</strong> papers</div>'+
+      '<div class="s"><div class="dot c"></div><strong>'+(s.concepts||0)+'</strong> concepts</div>'+
+      '<div class="s"><div class="dot e"></div><strong>'+(s.relations||0)+'</strong> edges</div>';
+    el('graphBadge').textContent=(s.papers||0)+' papers';
+    el('aboutPapers').textContent=s.papers||0;
+    el('aboutConcepts').textContent=s.concepts||0;
+    el('aboutEdges').textContent=s.relations||0;
+    if(s.rag)el('aboutChunks').textContent=s.rag.chunks||0;
+  }catch(_){}
+}
+
+// ── Knowledge Graph (D3) ──
 function renderGraph(data){
-  const svg = d3.select('#graph svg');
+  const svg=d3.select('#graphWrap svg');
   svg.selectAll('*').remove();
-  const width = svg.node().parentElement.clientWidth;
-  const height = 500;
-  svg.attr('viewBox',[0,0,width,height]);
+  el('graphEmpty').style.display=(!data.nodes||data.nodes.length===0)?'':'none';
 
-  if(!data.nodes || data.nodes.length === 0){
-    svg.append('text').attr('x',width/2).attr('y',height/2).attr('text-anchor','middle').attr('fill','#999').text('No papers yet');
-    return;
+  const rect=el('graphWrap').getBoundingClientRect();
+  const W=rect.width||800,H=Math.max(rect.height,400);
+  svg.attr('viewBox',[0,0,W,H]);
+
+  if(!data.nodes||data.nodes.length===0)return;
+
+  const links=data.links.map(d=>({...d}));
+  const nodes=data.nodes.map(d=>({...d}));
+
+  const tooltip=d3.select('#tooltip');
+
+  function drag(sim){
+    function started(e,d){
+      if(!e.active)sim.alphaTarget(.3).restart();
+      d.fx=d.x;d.fy=d.y;
+    }
+    function dragged(e,d){d.fx=e.x;d.fy=e.y}
+    function ended(e,d){
+      if(!e.active)sim.alphaTarget(0);
+      d.fx=null;d.fy=null;
+    }
+    return d3.drag().on('start',started).on('drag',dragged).on('end',ended);
   }
 
-  const links = data.links.map(d=>({...d}));
-  const nodes = data.nodes.map(d=>({...d}));
+  simulation=d3.forceSimulation(nodes)
+    .force('link',d3.forceLink(links).id(d=>d.id).distance(d=>d.type==='paper'?140:100).strength(.3))
+    .force('charge',d3.forceManyBody().strength(d=>d.type==='paper'?-300:-150))
+    .force('center',d3.forceCenter(W/2,H/2))
+    .force('collision',d3.forceCollide(d=>d.type==='paper'?35:20));
 
-  const color = d3.scaleOrdinal(d3.schemeSet2);
-  simulation = d3.forceSimulation(nodes)
-    .force('link',d3.forceLink(links).id(d=>d.id).distance(100))
-    .force('charge',d3.forceManyBody().strength(-200))
-    .force('center',d3.forceCenter(width/2,height/2))
-    .force('collision',d3.forceCollide(30));
+  const defs=svg.append('defs');
+  defs.append('marker').attr('id','arrow').attr('viewBox','0 -5 10 10').attr('refX',20).attr('refY',0).attr('markerWidth',6).attr('markerHeight',6).attr('orient','auto')
+    .append('path').attr('d','M0,-5L10,0L0,5').attr('fill','var(--border)');
 
-  const link = svg.append('g')
-    .selectAll('line').data(links).join('line')
-    .attr('stroke','#ccc').attr('stroke-width',1.5).attr('stroke-opacity',0.6);
+  const link=svg.append('g').selectAll('line').data(links).join('line')
+    .attr('stroke','var(--border)').attr('stroke-width',1).attr('stroke-opacity',.5).attr('marker-end','url(#arrow)');
 
-  const node = svg.append('g')
-    .selectAll('circle').data(nodes).join('circle')
-    .attr('r',8).attr('fill',d=>color(d.group||0))
-    .attr('stroke','white').attr('stroke-width',1.5)
-    .call(d3.drag()
-      .on('start',(e,d)=>{if(!e.active)simulation.alphaTarget(0.3).restart();d.fx=d.x;d.fy=d.y})
-      .on('drag',(e,d)=>{d.fx=e.x;d.fy=e.y})
-      .on('end',(e,d)=>{if(!e.active)simulation.alphaTarget(0);d.fx=null;d.fy=null}));
+  const linkLabel=svg.append('g').selectAll('g').data(links).join('g');
+  linkLabel.append('rect').attr('fill','var(--surface)').attr('rx',3).attr('ry',3).style('display','none');
+  linkLabel.append('text').text(d=>d.relation||'').attr('font-size','8px').attr('fill','var(--text3)').style('display','none');
 
-  const label = svg.append('g')
-    .selectAll('text').data(nodes).join('text')
-    .text(d=>d.label?.substring(0,20)).attr('font-size','10px')
-    .attr('dx',12).attr('dy',4).attr('fill','#333');
+  const node=svg.append('g').selectAll('g').data(nodes).join('g').call(drag(simulation));
 
-  node.append('title').text(d=>d.label+(d.definition?'\n'+d.definition:''));
+  node.append('title').text(d=>d.label+(d.abstract?'\n'+d.abstract.substring(0,300):'')+(d.definition?'\n'+d.definition:''));
+
+  node.filter(d=>d.type==='paper'||d.group===0).append('rect')
+    .attr('width',12).attr('height',12).attr('x',-6).attr('y',-6).attr('rx',3)
+    .attr('fill','var(--accent)').attr('stroke','rgba(96,165,250,.3)').attr('stroke-width',2);
+
+  node.filter(d=>d.type!=='paper'&&d.group!==0).append('circle')
+    .attr('r',6).attr('fill','var(--purple)').attr('stroke','rgba(192,132,252,.3)').attr('stroke-width',2);
+
+  node.append('text').text(d=>d.label?.substring(0,25)).attr('font-size','10px').attr('dx',14).attr('dy',4).attr('fill','var(--text2)');
+
+  node.on('mouseenter',function(e,d){
+    tooltip.style('opacity',1).html(
+      '<b>'+esc(d.label)+'</b>'+(d.type?' <span style="color:var(--text3)">('+d.type+')</span>':'')+
+      (d.abstract?'<br>'+esc(d.abstract.substring(0,250)):'')+
+      (d.definition?'<br><i>'+esc(d.definition)+'</i>':'')
+    );
+    d3.select(this).select('rect,circle').attr('stroke-width',3);
+    link.attr('stroke-opacity',l=>l.source.id===d.id||l.target.id===d.id?.5:.05);
+    node.attr('opacity',n=>n.id===d.id||links.some(l=>(l.source.id===d.id&&l.target.id===n.id)||(l.target.id===d.id&&l.source.id===n.id))?1:.2);
+  }).on('mousemove',function(e){
+    const r=el('graphWrap').getBoundingClientRect();
+    tooltip.style('left',(e.clientX-r.left+12)+'px').style('top',(e.clientY-r.top-10)+'px');
+  }).on('mouseleave',function(){
+    tooltip.style('opacity',0);
+    d3.select(this).select('rect,circle').attr('stroke-width',2);
+    link.attr('stroke-opacity',.5);
+    node.attr('opacity',1);
+  });
 
   simulation.on('tick',()=>{
-    link.attr('x1',d=>d.source.x).attr('y1',d=>d.source.y)
-        .attr('x2',d=>d.target.x).attr('y2',d=>d.target.y);
-    node.attr('cx',d=>d.x).attr('cy',d=>d.y);
-    label.attr('x',d=>d.x).attr('y',d=>d.y);
+    link.attr('x1',d=>d.source.x).attr('y1',d=>d.source.y).attr('x2',d=>d.target.x).attr('y2',d=>d.target.y);
+    linkLabel.attr('transform',d=>{
+      const mx=(d.source.x+d.target.x)/2,my=(d.source.y+d.target.y)/2;
+      const ang=Math.atan2(d.target.y-d.source.y,d.target.x-d.source.x)*180/Math.PI;
+      return 'translate('+mx+','+my+') rotate('+(ang>90||ang<-90?ang+180:ang)+')';
+    });
+    linkLabel.select('text').style('display','block');
+    linkLabel.select('rect').style('display','block').attr('width',function(){return this.nextSibling?this.nextSibling.getComputedTextLength()+8:0}).attr('height',14).attr('x',-4).attr('y',-7);
+    node.attr('transform',d=>'translate('+d.x+','+d.y+')');
   });
 }
+
+function applyFilter(val){
+  if(!gData.nodes)return;
+  const l=val.toLowerCase();
+  d3.selectAll('#graphWrap g g').attr('opacity',d=>!l||d.label?.toLowerCase().includes(l)?1:.15);
+}
+
+// ── Add Paper ──
+async function addPaper(){
+  const raw=el('arxivInput').value.trim();
+  if(!raw)return;
+  const m=raw.match(/(\d{4}\.\d{4,5})/);
+  const id=m?m[1]:raw;
+  log('Adding '+id+'...','info');
+  el('arxivInput').value='';
+  try{
+    const r=await api('/api/add','POST',{id});
+    if(r.status==='added'){log('Done: '+r.paper_id+' ('+r.concepts+' concepts, '+r.tags+' tags'+(r.rag_chunks?', '+r.rag_chunks+' rag chunks':'')+')','done')}
+    else if(r.status==='exists'){log('Already exists: '+id,'warn')}
+    else{log('Error: '+(r.message||JSON.stringify(r)),'error')}
+    refreshAll();
+  }catch(e){log('Error: '+e,'error')}
+}
+
+// ── Search ──
+async function searchArxiv(){
+  const q=el('searchInput').value.trim();
+  if(!q)return;
+  log('Searching arXiv...','info');
+  try{
+    const results=await api('/api/search','POST',{query:q});
+    searchResults=results;
+    const c=el('searchResults');
+    if(!results||results.length===0){c.innerHTML='<div class="card" style="text-align:center;color:var(--text3)">No results found</div>';return}
+    c.innerHTML=results.map((p,i)=>'<div class="result-card" onclick="toggleResult('+i+')" id="rc'+i+'">'+
+      '<h4>'+esc(p.title)+'</h4>'+
+      '<div class="meta">'+esc(p.authors)+' &middot; '+p.published+' &middot; ['+p.arxiv_id+']</div>'+
+      '<div class="abs">'+esc(p.abstract.substring(0,300))+'</div>'+
+      '<div class="cats">'+p.categories.map(c=>'<span>'+c+'</span>').join('')+'</div></div>').join('');
+    el('importBtn').style.display='inline-flex';
+    log('Found '+results.length+' results','done');
+  }catch(e){log('Error: '+e,'error')}
+}
+
+let selectedResults=[];
+function toggleResult(i){
+  const rc=el('rc'+i);
+  rc.classList.toggle('selected');
+  const idx=selectedResults.indexOf(i);
+  if(idx>-1)selectedResults.splice(idx,1);else selectedResults.push(i);
+}
+
+async function importSearch(){
+  const q=el('searchInput').value.trim();
+  if(!q)return;
+  log('Importing all...','info');
+  try{
+    const r=await api('/api/import','POST',{query:q});
+    const added=r.filter(x=>x.status==='added').length;
+    const exists=r.filter(x=>x.status==='exists').length;
+    log('Imported: '+added+' new, '+exists+' already existed','done');
+    el('searchResults').innerHTML='';
+    el('importBtn').style.display='none';
+    refreshAll();
+  }catch(e){log('Error: '+e,'error')}
+}
+
+// ── Browse ──
+function switchBrowseTab(name,el_){
+  document.querySelectorAll('#panel-browse .tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('#panel-browse .tab-content').forEach(t=>t.classList.remove('active'));
+  el_.classList.add('active');
+  document.getElementById('browse'+name.charAt(0).toUpperCase()+name.slice(1)).classList.add('active');
+}
+
+async function loadBrowse(){
+  try{
+    const [papers,concepts]=await Promise.all([api('/api/papers'),api('/api/concepts')]);
+    el('browseBadge').textContent=papers.length+' papers';
+    if(papers.length){
+      el('browsePapers').innerHTML=papers.map(p=>'<div class="paper-row"><div class="info"><h4>'+esc(p.title)+'</h4><div class="sub">'+esc(p.authors)+' &middot; '+p.id+' &middot; '+p.published+'</div></div></div>').join('');
+    }else{el('browsePapers').innerHTML='<div style="color:var(--text3);text-align:center;padding:20px">No papers ingested yet</div>'}
+    if(concepts.length){
+      el('browseConcepts').innerHTML=concepts.map(c=>'<span class="concept-tag">'+esc(c.label)+'</span>').join('')+
+        '<div style="color:var(--text3);margin-top:8px;font-size:11px">'+concepts.length+' total concepts</div>';
+    }else{el('browseConcepts').innerHTML='<div style="color:var(--text3);text-align:center;padding:20px">No concepts extracted yet</div>'}
+  }catch(_){}
+}
+
+// ── Similarity ──
+async function loadSimilarity(){
+  log('Computing similarity matrix...','info');
+  try{
+    const sim=await api('/api/similarity');
+    const c=el('simResults');
+    if(!sim||sim.length===0){c.innerHTML='<div class="card" style="text-align:center;color:var(--text3)">Need at least 2 papers for similarity analysis</div>';log('Need at least 2 papers','warn');return}
+    const rows=sim.map(s=>{
+      const cls=s.score>.3?'high':s.score>.15?'med':'low';
+      return '<tr><td>'+esc(s.source_title.substring(0,40))+'</td><td>'+esc(s.target_title.substring(0,40))+'</td><td><span class="sim-score '+cls+'">'+(s.score*100).toFixed(0)+'%</span></td><td style="font-size:11px;color:var(--text3)">'+(s.author_overlap*100).toFixed(0)+'% auth</td></tr>';
+    }).join('');
+    c.innerHTML='<table class="sim-table"><thead><tr><th>Paper A</th><th>Paper B</th><th>Similarity</th><th>Authors</th></tr></thead><tbody>'+rows+'</tbody></table>';
+    log('Computed similarity for '+sim.length+' pairs','done');
+  }catch(e){log('Error: '+e,'error')}
+}
+
+// ── RAG Chat ──
+async function askRag(){
+  const q=el('chatInput').value.trim();
+  if(!q)return;
+  el('chatInput').value='';
+  const msgs=el('chatMsgs');
+  msgs.innerHTML+='<div class="chat-msg user">'+esc(q)+'</div>';
+  msgs.innerHTML+='<div class="chat-msg assistant typing" id="typing">Thinking...</div>';
+  msgs.scrollTop=msgs.scrollHeight;
+  try{
+    const r=await api('/api/query','POST',{question:q});
+    el('typing').remove();
+    const ans=r.answer||'No answer generated';
+    const srcs=r.sources||[];
+    const srcHtml=srcs.length?'<div class="src">Sources: '+srcs.map(s=>'<a href="https://arxiv.org/abs/'+s.id+'" target="_blank">'+esc(s.title)+'</a>').join(', ')+'</div>':'';
+    msgs.innerHTML+='<div class="chat-msg assistant">'+esc(ans)+srcHtml+'</div>';
+  }catch(e){
+    el('typing').remove();
+    msgs.innerHTML+='<div class="chat-msg assistant" style="color:var(--red)">Error: '+e+'</div>';
+  }
+  msgs.scrollTop=msgs.scrollHeight;
+}
+
+// ── About ──
+async function loadAbout(){
+  try{
+    const [s,o,g]=await Promise.all([api('/api/stats'),api('/api/ollama'),api('/api/gpu')]);
+    const sys=el('sysInfo');
+    sys.innerHTML=
+      'Platform: '+o.platform+'<br>Processor: '+o.processor+'<br>Python: '+o.python;
+    const oi=el('ollamaInfo');
+    if(o.connected){
+      oi.innerHTML=
+        'Status: <span style="color:var(--green)">Connected</span><br>'+
+        'Model: '+o.model+(o.model_available?' <span style="color:var(--green)">&#x2713;</span>':' <span style="color:var(--red)">not found</span>')+'<br>'+
+        'Fast: '+o.fast_model+(o.fast_available?' <span style="color:var(--green)">&#x2713;</span>':' <span style="color:var(--red)">not found</span>')+'<br>'+
+        'Embed: '+o.embed_model+(o.embed_available?' <span style="color:var(--green)">&#x2713;</span>':' <span style="color:var(--red)">not found</span>');
+    }else{
+      oi.innerHTML='Status: <span style="color:var(--red)">Disconnected</span> (tried '+o.base_url+')';
+    }
+    const gi=el('gpuInfo');
+    gi.innerHTML=g.apple_silicon?'Backend: <span style="color:var(--green)">Metal (Apple Silicon)</span><br>Details: '+(g.details||'Apple Silicon')+(g.memory_gb?'<br>Memory: '+g.memory_gb+' GB':''):'Backend: '+g.backend;
+  }catch(_){}
+}
+
+// ── Refresh ──
+async function refreshAll(){
+  await Promise.all([loadHeaderStats(),loadGraph(),loadGpuStatus()]);
+}
+
+async function loadGraph(){
+  try{
+    gData=await api('/api/graph');
+    if(document.getElementById('panel-graph').classList.contains('active'))renderGraph(gData);
+  }catch(_){}
+}
+
+// ── Init ──
+loadGpuStatus();
+loadHeaderStats();
 loadGraph();
 </script>
 </body>

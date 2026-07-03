@@ -2,12 +2,13 @@ from __future__ import annotations
 
 import json
 import logging
-import mimetypes
+import platform
 import re
-from functools import wraps
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
+
+import requests
 
 from .organizer import Organizer
 
@@ -81,8 +82,65 @@ class RouteHandler(BaseHTTPRequestHandler):
                 for n in self.org.kg.concepts
             ]
             _json_response(self, concepts)
+        elif path == "/api/ollama":
+            self._handle_ollama_status()
+        elif path == "/api/gpu":
+            self._handle_gpu_status()
         else:
             _json_response(self, {"error": "not found"}, 404)
+
+    def _handle_ollama_status(self) -> None:
+        base = self.org.config.ollama_base_url
+        model = self.org.config.ollama_model
+        fast = self.org.config.ollama_fast_model
+        embed = self.org.config.ollama_embed_model
+        connected = False
+        models = []
+        try:
+            r = requests.get(f"{base}/api/tags", timeout=5)
+            if r.status_code == 200:
+                connected = True
+                models = [m["name"] for m in r.json().get("models", [])]
+        except Exception:
+            pass
+        _json_response(self, {
+            "connected": connected,
+            "base_url": base,
+            "model": model,
+            "fast_model": fast,
+            "embed_model": embed,
+            "model_available": model in models,
+            "fast_available": fast in models,
+            "embed_available": embed in models,
+            "platform": platform.platform(),
+            "processor": platform.processor(),
+            "python": platform.python_version(),
+        })
+
+    def _handle_gpu_status(self) -> None:
+        import subprocess
+        info = {"backend": "cpu", "apple_silicon": False, "details": ""}
+        if platform.system() == "Darwin":
+            info["backend"] = "metal"
+            info["apple_silicon"] = True
+            try:
+                r = subprocess.run(
+                    ["sysctl", "-n", "machdep.cpu.brand_string"],
+                    capture_output=True, text=True, timeout=5,
+                )
+                info["details"] = r.stdout.strip()
+            except Exception:
+                info["details"] = "Apple Silicon"
+            try:
+                r2 = subprocess.run(
+                    ["sysctl", "-n", "hw.memsize"],
+                    capture_output=True, text=True, timeout=5,
+                )
+                mem_bytes = int(r2.stdout.strip())
+                info["memory_gb"] = round(mem_bytes / (1024**3), 1)
+            except Exception:
+                pass
+        _json_response(self, info)
 
     def do_POST(self) -> None:
         path, params = self._parse_path()
@@ -148,167 +206,11 @@ def run_server(
 def _inline_dashboard() -> str:
     return """<!DOCTYPE html>
 <html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Hive Research</title>
-<script src="https://d3js.org/d3.v7.min.js"></script>
-<style>
-*{margin:0;padding:0;box-sizing:border-box}
-body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f5f5f5;color:#333;padding:20px}
-h1{font-size:1.5rem;margin-bottom:16px;color:#1a1a2e}
-.card{background:white;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.1);padding:16px;margin-bottom:16px}
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px}
-button{background:#1a1a2e;color:white;border:none;padding:8px 16px;border-radius:4px;cursor:pointer;font-size:0.9rem}
-button:hover{background:#16213e}
-input{width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;margin-bottom:8px;font-size:0.9rem}
-#graph svg{width:100%;height:500px;border-radius:4px}
-.stat{display:inline-block;margin:8px 16px 8px 0;font-size:0.9rem}
-.stat span{font-weight:700;color:#1a1a2e}
-#output{background:#1a1a2e;color:#e0e0e0;padding:12px;border-radius:4px;font-family:monospace;font-size:0.85rem;max-height:300px;overflow-y:auto;white-space:pre-wrap;margin-top:8px}
-.tabs{display:flex;gap:8px;margin-bottom:12px}
-.tab{padding:6px 14px;border-radius:4px;cursor:pointer;background:#eee;font-size:0.85rem}
-.tab.active{background:#1a1a2e;color:white}
-</style>
-</head>
-<body>
-<h1> Hive Research</h1>
-<div class="grid">
-<div class="card">
-  <h3>Knowledge Graph</h3>
-  <div id="graph"><svg></svg></div>
-  <div id="stats"></div>
-</div>
-<div class="card">
-  <div class="tabs">
-    <div class="tab active" onclick="switchTab('add')">Add Paper</div>
-    <div class="tab" onclick="switchTab('search')">Search</div>
-    <div class="tab" onclick="switchTab('query')">RAG Query</div>
-  </div>
-  <div id="tab-add">
-    <input id="arxiv-id" placeholder="arXiv ID (e.g. 1706.03762)">
-    <button onclick="addPaper()">Add Paper</button>
-  </div>
-  <div id="tab-search" style="display:none">
-    <input id="search-query" placeholder="Search query (e.g. attention mechanism)">
-    <button onclick="searchArxiv()">Search</button>
-    <button onclick="importSearch()" style="margin-left:8px">Import All</button>
-  </div>
-  <div id="tab-query" style="display:none">
-    <input id="rag-question" placeholder="Ask a question about your papers">
-    <button onclick="askRag()">Ask</button>
-  </div>
-  <div id="output">Ready</div>
-</div>
-</div>
-<script>
-let gData = {nodes:[],links:[]};
-let simulation = null;
-
-function log(msg){document.getElementById('output').textContent = msg}
-function switchTab(name){
-  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
-  document.querySelectorAll('[id^="tab-"]').forEach(d=>d.style.display='none');
-  document.getElementById('tab-'+name).style.display='block';
-  event.target.classList.add('active');
-}
-
-async function fetchJSON(url,method='GET',body=null){
-  const opts = {method,headers:{'Content-Type':'application/json'}};
-  if(body) opts.body = JSON.stringify(body);
-  const r = await fetch(url,opts);
-  return r.json();
-}
-
-async function loadGraph(){
-  const data = await fetchJSON('/api/graph');
-  gData = data;
-  renderGraph(data);
-  const stats = await fetchJSON('/api/stats');
-  document.getElementById('stats').innerHTML =
-    Object.entries(stats).filter(([k])=>k!=='rag').map(([k,v])=>`<div class="stat"><span>${k}:</span> ${v}</div>`).join('');
-}
-async function addPaper(){
-  const id = document.getElementById('arxiv-id').value.trim();
-  if(!id) return;
-  log('Adding paper '+id+'...');
-  const r = await fetchJSON('/api/add','POST',{id});
-  log(JSON.stringify(r,null,2));
-  loadGraph();
-}
-async function searchArxiv(){
-  const q = document.getElementById('search-query').value.trim();
-  if(!q) return;
-  log('Searching...');
-  const r = await fetchJSON('/api/search','POST',{query:q});
-  log(r.map(p=>'['+p.arxiv_id+'] '+p.title).join('\\n'));
-}
-async function importSearch(){
-  const q = document.getElementById('search-query').value.trim();
-  if(!q) return;
-  log('Importing...');
-  const r = await fetchJSON('/api/import','POST',{query:q});
-  log(JSON.stringify(r,null,2));
-  loadGraph();
-}
-async function askRag(){
-  const q = document.getElementById('rag-question').value.trim();
-  if(!q) return;
-  log('Thinking...');
-  const r = await fetchJSON('/api/query','POST',{question:q});
-  log('Answer: '+r.answer+'\\n\\nSources: '+(r.sources||[]).map(s=>s.title).join(', '));
-}
-
-function renderGraph(data){
-  const svg = d3.select('#graph svg');
-  svg.selectAll('*').remove();
-  const width = svg.node().parentElement.clientWidth;
-  const height = 500;
-  svg.attr('viewBox',[0,0,width,height]);
-
-  if(!data.nodes || data.nodes.length === 0){
-    svg.append('text').attr('x',width/2).attr('y',height/2).attr('text-anchor','middle').attr('fill','#999').text('No papers yet');
-    return;
-  }
-
-  const links = data.links.map(d=>({...d}));
-  const nodes = data.nodes.map(d=>({...d}));
-
-  const color = d3.scaleOrdinal(d3.schemeSet2);
-  simulation = d3.forceSimulation(nodes)
-    .force('link',d3.forceLink(links).id(d=>d.id).distance(100))
-    .force('charge',d3.forceManyBody().strength(-200))
-    .force('center',d3.forceCenter(width/2,height/2))
-    .force('collision',d3.forceCollide(30));
-
-  const link = svg.append('g')
-    .selectAll('line').data(links).join('line')
-    .attr('stroke','#ccc').attr('stroke-width',1.5).attr('stroke-opacity',0.6);
-
-  const node = svg.append('g')
-    .selectAll('circle').data(nodes).join('circle')
-    .attr('r',8).attr('fill',d=>color(d.group||0))
-    .attr('stroke','white').attr('stroke-width',1.5)
-    .call(d3.drag()
-      .on('start',(e,d)=>{if(!e.active)simulation.alphaTarget(0.3).restart();d.fx=d.x;d.fy=d.y})
-      .on('drag',(e,d)=>{d.fx=e.x;d.fy=e.y})
-      .on('end',(e,d)=>{if(!e.active)simulation.alphaTarget(0);d.fx=null;d.fy=null}));
-
-  const label = svg.append('g')
-    .selectAll('text').data(nodes).join('text')
-    .text(d=>d.label?.substring(0,20)).attr('font-size','10px')
-    .attr('dx',12).attr('dy',4).attr('fill','#333');
-
-  node.append('title').text(d=>d.label+(d.definition?'\\n'+d.definition:''));
-
-  simulation.on('tick',()=>{
-    link.attr('x1',d=>d.source.x).attr('y1',d=>d.source.y)
-        .attr('x2',d=>d.target.x).attr('y2',d=>d.target.y);
-    node.attr('cx',d=>d.x).attr('cy',d=>d.y);
-    label.attr('x',d=>d.x).attr('y',d=>d.y);
-  });
-}
-loadGraph();
-</script>
-</body>
-</html>"""
+<head><meta charset="UTF-8"><title>Hive Research</title>
+<style>body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;background:#0a0e17;color:#e2e8f0;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;text-align:center;padding:20px}
+.card{background:#111827;border:1px solid #1e3a5f;border-radius:10px;padding:40px;max-width:500px}
+h1{color:#60a5fa;font-size:24px;margin:0 0 8px}p{color:#94a3b8;line-height:1.6;font-size:14px}
+code{background:#1e293b;padding:2px 6px;border-radius:4px;font-size:13px;color:#c084fc}
+</style></head><body>
+<div class="card"><h1>Hive Research</h1>
+<p>Dashboard file not found. Run with <code>dashboard.html</code> present or use the <code>--inline</code> flag.</p></div></body></html>"""
