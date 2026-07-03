@@ -472,12 +472,16 @@ function renderGraph(data){
     .force('collision',d3.forceCollide(d=>d.type==='paper'?35:20));
   const defs=svg.append('defs');
   defs.append('marker').attr('id','arrow').attr('viewBox','0 -5 10 10').attr('refX',20).attr('refY',0).attr('markerWidth',6).attr('markerHeight',6).attr('orient','auto')
-    .append('path').attr('d','M0,-5L10,0L0,5').attr('fill','var(--border)');
+    .append('path').attr('d','M0,-5L10,0L0,5').attr('fill','#1e3a5f');
   const link=svg.append('g').selectAll('line').data(links).join('line')
-    .attr('stroke','var(--border)').attr('stroke-width',1).attr('stroke-opacity',.5).attr('marker-end','url(#arrow)');
+    .attr('stroke','#1e3a5f').attr('stroke-width',1).attr('stroke-opacity',.5).attr('marker-end','url(#arrow)');
   const linkLabel=svg.append('g').selectAll('g').data(links).join('g');
-  linkLabel.append('rect').attr('fill','var(--surface)').attr('rx',3).attr('ry',3).style('display','none');
-  linkLabel.append('text').text(d=>d.relation||'').attr('font-size','8px').attr('fill','var(--text3)').style('display','none');
+  linkLabel.append('rect')
+    .attr('fill','#1e293b').attr('rx',4).attr('ry',4)
+    .attr('stroke','#1e3a5f').attr('stroke-width',0.5);
+  linkLabel.append('text').text(d=>d.relation||'')
+    .attr('font-size','8px').attr('fill','#94a3b8')
+    .attr('text-anchor','middle').attr('dy','0.35em');
   const node=svg.append('g').selectAll('g').data(nodes).join('g').call(drag(simulation));
   node.append('title').text(d=>d.label+(d.abstract?'\n'+d.abstract.substring(0,300):'')+(d.definition?'\n'+d.definition:''));
   node.filter(d=>d.type==='paper'||d.group===0).append('rect')
@@ -486,15 +490,15 @@ function renderGraph(data){
 
   node.filter(d=>d.type!=='paper'&&d.group!==0).append('circle')
     .attr('r',7).attr('fill','#c084fc').attr('stroke','rgba(192,132,252,.5)').attr('stroke-width',2);
-  node.append('text').text(d=>d.label?.substring(0,25)).attr('font-size','10px').attr('dx',14).attr('dy',4).attr('fill','var(--text2)');
+  node.append('text').text(d=>d.label?.substring(0,25)).attr('font-size','10px').attr('dx',14).attr('dy',4).attr('fill','#94a3b8');
   node.on('mouseenter',function(e,d){
     tooltip.style('opacity',1).html(
-      '<b>'+esc(d.label)+'</b>'+(d.type?' <span style="color:var(--text3)">('+d.type+')</span>':'')+
+      '<b>'+esc(d.label)+'</b>'+(d.type?' <span style="color:#94a3b8">('+d.type+')</span>':'')+
       (d.abstract?'<br>'+esc(d.abstract.substring(0,250)):'')+
       (d.definition?'<br><i>'+esc(d.definition)+'</i>':'')
     );
     d3.select(this).select('rect,circle').attr('stroke-width',3);
-    link.attr('stroke-opacity',l=>l.source.id===d.id||l.target.id===d.id?.5:.05);
+    link.attr('stroke-opacity',l=>l.source.id===d.id||l.target.id===d.id?0.5:0.05);
     node.attr('opacity',n=>n.id===d.id||links.some(l=>(l.source.id===d.id&&l.target.id===n.id)||(l.target.id===d.id&&l.source.id===n.id))?1:.2);
   }).on('mousemove',function(e){
     const r=el('graphWrap').getBoundingClientRect();
@@ -507,9 +511,21 @@ function renderGraph(data){
   });
   simulation.on('tick',()=>{
     link.attr('x1',d=>d.source.x).attr('y1',d=>d.source.y).attr('x2',d=>d.target.x).attr('y2',d=>d.target.y);
-    linkLabel.attr('transform',d=>{const mx=(d.source.x+d.target.x)/2,my=(d.source.y+d.target.y)/2;const ang=Math.atan2(d.target.y-d.source.y,d.target.x-d.source.x)*180/Math.PI;return 'translate('+mx+','+my+') rotate('+(ang>90||ang<-90?ang+180:ang)+')'});
-    linkLabel.select('text').style('display','block');
-    linkLabel.select('rect').style('display','block').attr('width',function(){return this.nextSibling?this.nextSibling.getComputedTextLength()+8:0}).attr('height',14).attr('x',-4).attr('y',-7);
+    linkLabel.attr('transform',d=>{
+      const mx=(d.source.x+d.target.x)/2,my=(d.source.y+d.target.y)/2;
+      const ang=Math.atan2(d.target.y-d.source.y,d.target.x-d.source.x)*180/Math.PI;
+      const flip=ang>90||ang<-90;
+      return 'translate('+mx+','+my+') rotate('+(flip?ang+180:ang)+')';
+    });
+    linkLabel.select('text').text(d=>d.relation||'');
+    linkLabel.select('rect').attr('width',function(){
+      const t=d3.select(this.parentNode).select('text');
+      return t.node()?t.node().getComputedTextLength()+10:30;
+    }).attr('height',16).attr('x',function(){
+      const t=d3.select(this.parentNode).select('text');
+      const w=t.node()?t.node().getComputedTextLength()+10:30;
+      return -w/2;
+    }).attr('y',-8);
     node.attr('transform',d=>'translate('+d.x+','+d.y+')');
   });
 }
