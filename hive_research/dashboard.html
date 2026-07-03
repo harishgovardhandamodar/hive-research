@@ -445,15 +445,17 @@ async function loadHeaderStats(){
 // ── Knowledge Graph (D3) ──
 function renderGraph(data){
   const wrap=el('graphWrap');
-  if(!wrap){setTimeout(()=>renderGraph(data),100);return}
+  if(!wrap){addLog('graphWrap not found, retrying...','WARN');setTimeout(()=>renderGraph(data),200);return}
   const svg=d3.select('#graphWrap svg');
   svg.selectAll('*').remove();
-  el('graphEmpty').style.display=(!data.nodes||data.nodes.length===0)?'':'none';
+  const hasNodes=data&&data.nodes&&data.nodes.length>0;
+  el('graphEmpty').style.display=hasNodes?'none':'';
+  if(!hasNodes){addLog('No graph data to render','WARN');return}
   const rect=wrap.getBoundingClientRect();
   const W=rect.width||Math.max(window.innerWidth-120,800);
   const H=Math.max(rect.height||window.innerHeight-280,400);
   svg.attr('width',W).attr('height',H).attr('viewBox',[0,0,W,H]);
-  if(!data.nodes||data.nodes.length===0)return;
+  addLog('Rendering graph: '+data.nodes.length+' nodes, '+data.links.length+' edges, '+W+'x'+H,'DONE');
   const links=data.links.map(d=>({...d}));
   const nodes=data.nodes.map(d=>({...d}));
   const tooltip=d3.select('#tooltip');

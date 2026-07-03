@@ -65,6 +65,8 @@ class RouteHandler(BaseHTTPRequestHandler):
         path, params = self._parse_path()
         if path == "/" or path == "" or path == "/index.html":
             self._serve_dashboard()
+        elif path == "/debug/graph":
+            self._serve_debug_graph()
         elif path == "/api/graph":
             _json_response(self, self.org.graph_data())
         elif path == "/api/stats":
@@ -157,6 +159,57 @@ class RouteHandler(BaseHTTPRequestHandler):
             except Exception:
                 pass
         _json_response(self, info)
+
+    def _serve_debug_graph(self) -> None:
+        data = self.org.graph_data()
+        nodes_json = json.dumps(data)
+        html = f"""<!DOCTYPE html>
+<html><head><meta charset="UTF-8">
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<style>
+body{{margin:0;background:#0a0e17;overflow:hidden;font-family:sans-serif}}
+#graph{{width:100vw;height:100vh}}
+#info{{position:fixed;top:10px;left:10px;color:#94a3b8;font-size:12px;z-index:10;background:rgba(0,0,0,.7);padding:8px 12px;border-radius:6px}}
+</style></head>
+<body>
+<div id="info">Loading graph...</div>
+<div id="graph"></div>
+<script>
+const data = {nodes_json};
+const info = document.getElementById('info');
+info.textContent = 'Nodes: '+data.nodes.length+', Edges: '+data.links.length;
+const W = window.innerWidth, H = window.innerHeight;
+const svg = d3.select('#graph').append('svg').attr('width',W).attr('height',H).attr('viewBox',[0,0,W,H]);
+const links = data.links.map(d=>({{...d}}));
+const nodes = data.nodes.map(d=>({{...d}}));
+try {{
+const sim = d3.forceSimulation(nodes)
+  .force('link', d3.forceLink(links).id(d=>d.id).distance(130).strength(.3))
+  .force('charge', d3.forceManyBody().strength(-250))
+  .force('center', d3.forceCenter(W/2, H/2))
+  .force('collision', d3.forceCollide(25));
+const link = svg.append('g').selectAll('line').data(links).join('line')
+  .attr('stroke','#1e3a5f').attr('stroke-width',1.2).attr('stroke-opacity',.6);
+const node = svg.append('g').selectAll('g').data(nodes).join('g')
+  .call(d3.drag().on('start',(e,d)=>{{if(!e.active)sim.alphaTarget(.3).restart();d.fx=d.x;d.fy=d.y}})
+    .on('drag',(e,d)=>{{d.fx=e.x;d.fy=e.y}})
+    .on('end',(e,d)=>{{if(!e.active)sim.alphaTarget(0);d.fx=null;d.fy=null}}));
+node.filter(d=>d.type==='paper').append('rect')
+  .attr('width',14).attr('height',14).attr('x',-7).attr('y',-7).attr('rx',4)
+  .attr('fill','#60a5fa').attr('stroke','#60a5fa').attr('stroke-width',2);
+node.filter(d=>d.type!=='paper').append('circle')
+  .attr('r',7).attr('fill','#c084fc').attr('stroke','#c084fc').attr('stroke-width',2);
+node.append('text')
+  .text(d=>(d.label||'').substring(0,22))
+  .attr('dx',15).attr('dy',4).attr('fill','#94a3b8').attr('font-size','10px').attr('font-family','sans-serif');
+sim.on('tick',()=>{{
+  link.attr('x1',d=>d.source.x).attr('y1',d=>d.source.y).attr('x2',d=>d.target.x).attr('y2',d=>d.target.y);
+  node.attr('transform',d=>'translate('+d.x+','+d.y+')');
+}});
+info.textContent += ' | OK';
+}} catch(e) {{ info.textContent += ' | ERROR: '+e.message; }}
+</script></body></html>"""
+        _html_response(self, html)
 
     def do_POST(self) -> None:
         path, params = self._parse_path()
