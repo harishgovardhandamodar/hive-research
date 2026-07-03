@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from .arxiv_fetcher import PaperInfo, fetch_by_id, search_arxiv
+from .arxiv_fetcher import PaperInfo, fetch_by_id, fetch_by_id_with_meta, search_arxiv
 from .config import Config
 from .graph import KnowledgeGraph
 from .llm import LLMInterface
@@ -25,9 +25,10 @@ class Organizer:
         self.pool = ResearchPool(config.root_dir / "pool")
 
     def add_by_id(self, arxiv_id: str) -> dict[str, Any]:
-        paper = fetch_by_id(arxiv_id)
-        if not paper:
-            return {"status": "error", "message": f"Paper {arxiv_id} not found"}
+        result = fetch_by_id_with_meta(arxiv_id)
+        if result["status"] == "error":
+            return result
+        paper = result["paper"]
         result = self.pipeline.process_paper(paper)
         if result["status"] == "added":
             pdf_text = ""

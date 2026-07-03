@@ -533,6 +533,7 @@ async function addPaper(){
     const r=await api('/api/add','POST',{id});
     if(r.status==='added'){log('Done: '+r.paper_id+' ('+r.concepts+' concepts, '+r.tags+' tags'+(r.rag_chunks?', '+r.rag_chunks+' rag chunks':'')+')','done')}
     else if(r.status==='exists'){log('Already exists: '+id,'warn')}
+    else if(r.status==='error'){log(r.message||'arXiv API error','error')}
     else{log('Error: '+(r.message||JSON.stringify(r)),'error')}
     refreshAll();
   }catch(e){log('Error: '+e,'error')}
