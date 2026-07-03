@@ -261,6 +261,16 @@ info.textContent += ' | OK';
                 return
             result = self.org.query_rag(question)
             _json_response(self, result)
+        elif path == "/api/lineage":
+            arxiv_id = data.get("arxiv_id", params.get("arxiv_id", ""))
+            if not arxiv_id:
+                _json_response(self, {"error": "missing arxiv_id"}, 400)
+                return
+            result = self.org.fetch_lineage(arxiv_id)
+            _json_response(self, result)
+        elif path == "/api/definitions":
+            result = self.org.generate_definitions()
+            _json_response(self, result)
         elif path == "/api/pool/topics/add":
             name = data.get("name", "")
             query = data.get("query", "")
@@ -285,6 +295,18 @@ info.textContent += ' | OK';
             if result.get("status") == "added" or result.get("status") == "exists":
                 self.org.pool.mark_imported(arxiv_id)
             _json_response(self, result)
+        elif path == "/api/pool/import_batch":
+            arxiv_ids = data.get("arxiv_ids", [])
+            if not arxiv_ids:
+                _json_response(self, {"error": "missing arxiv_ids"}, 400)
+                return
+            results = []
+            for aid in arxiv_ids:
+                r = self.org.add_by_id(aid)
+                if r.get("status") in ("added", "exists"):
+                    self.org.pool.mark_imported(aid)
+                results.append({"arxiv_id": aid, "status": r.get("status")})
+            _json_response(self, {"results": results})
         else:
             _json_response(self, {"error": "not found"}, 404)
 

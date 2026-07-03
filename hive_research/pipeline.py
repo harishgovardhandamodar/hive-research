@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import re
+import time
 from pathlib import Path
 from typing import Any
 
@@ -9,7 +10,7 @@ from .arxiv_fetcher import PaperInfo, download_pdf, fetch_by_id
 from .config import Config
 from .graph import KnowledgeGraph
 from .llm import LLMInterface
-from .parser import extract_sections, extract_text
+from .parser import extract_referenced_arxiv_ids, extract_sections, extract_text
 
 logger = logging.getLogger(__name__)
 
@@ -103,7 +104,7 @@ class PaperPipeline:
         note_path = self._write_note(paper_id, paper, summary, tags, concepts)
         self.kg.save()
 
-        return {
+        result = {
             "status": "added",
             "paper_id": paper_id,
             "concepts": len(concepts),
@@ -111,6 +112,44 @@ class PaperPipeline:
             "relations": len(relations),
             "note_path": str(note_path) if note_path else None,
         }
+
+        if pdf_text:
+            refs = self.fetch_lineage(paper_id, pdf_text)
+            if refs:
+                result["lineage"] = refs
+                logger.info("Lineage: %d prior papers linked for %s", len(refs), paper_id)
+
+        return result
+
+    def fetch_lineage(self, paper_id: str, pdf_text: str, max_refs: int = 10) -> list[dict[str, Any]]:
+        ref_ids = extract_referenced_arxiv_ids(pdf_text)
+        if not ref_ids:
+            return []
+        fetched = []
+        for i, aid in enumerate(ref_ids[:max_refs]):
+            if self.kg.get_paper(aid):
+                self.kg.add_edge(paper_id, aid, "cites")
+                fetched.append({"arxiv_id": aid, "status": "exists"})
+                continue
+            if i > 0:
+                time.sleep(3)
+            prior = fetch_by_id(aid)
+            if prior is None:
+                continue
+            self.kg.add_paper(
+                paper_id=aid,
+                title=prior.title,
+                authors=prior.authors_str,
+                published=prior.published,
+                abstract=prior.abstract,
+                categories=prior.categories,
+            )
+            self.kg.add_edge(paper_id, aid, "cites")
+            fetched.append({"arxiv_id": aid, "title": prior.title[:80], "status": "added"})
+            logger.info("Lineage: linked prior paper %s — %s", aid, prior.title[:80])
+        if fetched:
+            self.kg.save()
+        return fetched
 
     def _resolve_id(self, name: str, fallback: str) -> str:
         sid = _sanitize_id(name)

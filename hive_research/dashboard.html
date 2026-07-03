@@ -135,6 +135,7 @@ textarea{resize:vertical;min-height:60px;font-family:inherit}
 .paper-row .info h4{font-size:12.5px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .paper-row .info .sub{font-size:11px;color:var(--text3)}
 .concept-tag{display:inline-flex;align-items:center;gap:4px;background:rgba(192,132,252,.12);color:var(--purple);padding:2px 8px;border-radius:4px;font-size:11px;margin:2px}
+.lineage-btn{flex-shrink:0;margin-left:auto;font-size:10px!important}
 
 /* Pool */
 .pool-toolbar{display:flex;align-items:center;gap:12px;flex-shrink:0;padding:0 0 10px;flex-wrap:wrap}
@@ -210,13 +211,15 @@ textarea{resize:vertical;min-height:60px;font-family:inherit}
 
 <!-- ── Graph Panel ── -->
 <div class="panel active" id="panel-graph">
-  <div class="panel-header"><h2>Knowledge Graph <span class="badge" id="graphBadge">0 nodes</span></h2></div>
+  <div class="panel-header"><h2>Knowledge Graph <span class="badge" id="graphBadge">0 nodes</span>
+    <button class="btn btn-sm" onclick="generateDefs()" style="margin-left:auto;font-size:10px">&#x1F4DD; Fill Definitions</button>
+  </h2></div>
   <div class="panel-body" style="padding-top:8px">
     <div id="graphWrap">
       <svg></svg>
       <div id="graphEmpty"><div class="icon">&#x1F4DA;</div>No papers yet &mdash; add one to get started</div>
       <input id="graphFilter" class="tab" placeholder="Filter nodes..." oninput="applyFilter(this.value)">
-      <div id="graphLegend"><div class="l"><div class="sw" style="background:var(--accent)"></div> Paper</div><div class="l"><div class="sw cir" style="background:var(--purple)"></div> Concept</div></div>
+      <div id="graphLegend"><div class="l"><div class="sw" style="background:var(--accent)"></div> Paper</div><div class="l"><div class="sw cir" style="background:var(--purple)"></div> Concept</div><div class="l" style="color:var(--green)">&#x2192; cites</div></div>
       <div id="tooltip"></div>
     </div>
   </div>
@@ -275,6 +278,10 @@ textarea{resize:vertical;min-height:60px;font-family:inherit}
       <div class="stat">Observed: <strong id="poolTotal">0</strong></div>
       <div class="stat">Imported: <strong id="poolImported" style="color:var(--green)">0</strong></div>
       <div class="stat">New: <strong id="poolNew" style="color:var(--yellow)">0</strong></div>
+      <div id="poolBatchBar" class="stat" style="display:none;margin-left:4px">
+        <input type="checkbox" id="poolSelectAll" onchange="toggleSelectAllPool()" style="width:auto;margin:0">
+        <button class="btn btn-sm btn-success" onclick="importSelectedFromPool()" id="poolImportSelected" style="display:none">+ Add Selected</button>
+      </div>
       <div class="pool-subtabs">
         <div class="pool-subtab active" onclick="switchPoolTab('browse',this)">Browse</div>
         <div class="pool-subtab" onclick="switchPoolTab('list',this)">List</div>
@@ -282,7 +289,12 @@ textarea{resize:vertical;min-height:60px;font-family:inherit}
         <div class="pool-subtab" onclick="switchPoolTab('topics',this)"><span style="font-size:14px">&#x2699;</span></div>
       </div>
     </div>
-    <div id="poolBrowse" style="flex:1;overflow-y:auto"></div>
+    <div id="poolBrowse" style="flex:1;overflow-y:auto">
+      <div style="text-align:right;padding:4px 0 8px;font-size:11px;color:var(--text3)">
+        <label style="cursor:pointer"><input type="checkbox" id="poolSelectAllBtn" onchange="toggleSelectAllPool()" style="width:auto;margin:0;vertical-align:middle"> Select all</label>
+        <button class="btn btn-sm btn-success" onclick="importSelectedFromPool()" id="poolImportSelectedBtn" style="display:none;margin-left:8px">+ Add Selected</button>
+      </div>
+    </div>
     <div id="poolList" style="flex:1;overflow-y:auto;display:none"></div>
     <div id="poolGraph" style="flex:1;overflow:hidden;display:none;flex-direction:column">
       <div id="poolGraphWrap"><svg></svg></div>
@@ -476,13 +488,16 @@ function renderGraph(data){
   defs.append('marker').attr('id','arrow').attr('viewBox','0 -5 10 10').attr('refX',20).attr('refY',0).attr('markerWidth',6).attr('markerHeight',6).attr('orient','auto')
     .append('path').attr('d','M0,-5L10,0L0,5').attr('fill','#1e3a5f');
   const link=svg.append('g').selectAll('line').data(links).join('line')
-    .attr('stroke','#1e3a5f').attr('stroke-width',1).attr('stroke-opacity',.5).attr('marker-end','url(#arrow)');
+    .attr('stroke',d=>d.relation==='cites'?'#34d399':'#1e3a5f')
+    .attr('stroke-width',d=>d.relation==='cites'?1.5:1)
+    .attr('stroke-opacity',d=>d.relation==='cites'?.7:.5)
+    .attr('marker-end','url(#arrow)');
   const linkLabel=svg.append('g').selectAll('g').data(links).join('g');
   linkLabel.append('rect')
     .attr('fill','#1e293b').attr('rx',4).attr('ry',4)
     .attr('stroke','#1e3a5f').attr('stroke-width',0.5);
   linkLabel.append('text').text(d=>d.relation||'')
-    .attr('font-size','8px').attr('fill','#94a3b8')
+    .attr('font-size','8px').attr('fill',d=>d.relation==='cites'?'#34d399':'#94a3b8')
     .attr('text-anchor','middle').attr('dy','0.35em');
   const node=svg.append('g').selectAll('g').data(nodes).join('g').call(drag(simulation));
   node.append('title').text(d=>d.label+(d.abstract?'\n'+d.abstract.substring(0,300):'')+(d.definition?'\n'+d.definition:''));
@@ -600,9 +615,35 @@ async function loadBrowse(){
   try{
     const [papers,concepts]=await Promise.all([api('/api/papers'),api('/api/concepts')]);
     el('browseBadge').textContent=papers.length+' papers';
-    el('browsePapers').innerHTML=papers.length?papers.map(p=>'<div class="paper-row"><div class="info"><h4>'+esc(p.title)+'</h4><div class="sub">'+esc(p.authors)+' &middot; '+p.id+' &middot; '+p.published+'</div></div></div>').join(''):'<div style="color:var(--text3);text-align:center;padding:20px">No papers ingested yet</div>';
+    el('browsePapers').innerHTML=papers.length?papers.map(p=>'<div class="paper-row"><div class="info"><h4>'+esc(p.title)+'</h4><div class="sub">'+esc(p.authors)+' &middot; '+p.id+' &middot; '+p.published+'</div></div><button class="btn btn-sm btn-outline lineage-btn" data-id="'+p.id+'" onclick="fetchLineage(\''+p.id+'\')">&#x1F50D; Lineage</button></div>').join(''):'<div style="color:var(--text3);text-align:center;padding:20px">No papers ingested yet</div>';
     el('browseConcepts').innerHTML=concepts.length?concepts.map(c=>'<span class="concept-tag">'+esc(c.label)+'</span>').join('')+'<div style="color:var(--text3);margin-top:8px;font-size:11px">'+concepts.length+' total concepts</div>':'<div style="color:var(--text3);text-align:center;padding:20px">No concepts extracted yet</div>';
   }catch(_){}
+}
+
+// ── Concept Definitions ──
+async function generateDefs(){
+  addLog('Generating definitions for concepts...','INPROGRESS');
+  try{
+    const r=await api('/api/definitions','POST');
+    if(r.generated>0){addLog('Generated '+r.generated+' definitions','DONE');refreshAll()}
+    else{addLog('No concepts needing definitions','DONE')}
+  }catch(e){addLog('Error generating definitions: '+e,'ERROR')}
+}
+
+// ── Lineage ──
+async function fetchLineage(aid){
+  addLog('Fetching lineage for '+aid+'...','INPROGRESS');
+  try{
+    const r=await api('/api/lineage','POST',{arxiv_id:aid});
+    if(r.status==='ok'&&r.references){
+      const added=r.references.filter(x=>x.status==='added').length;
+      const existed=r.references.filter(x=>x.status==='exists').length;
+      addLog('Lineage: '+added+' new priors, '+existed+' already known','DONE');
+      refreshAll();
+    }else{
+      addLog('Lineage: '+(r.message||'no refs found'),'WARN');
+    }
+  }catch(e){addLog('Lineage error: '+e,'ERROR')}
 }
 
 // ── Similarity ──
@@ -689,9 +730,14 @@ async function loadPool(){
   updatePoolStats(_poolStore);
 }
 
+let _poolSelected=[];
+
 function renderPoolBrowse(data){
   const c=el('poolBrowse');
-  if(!data||!Object.keys(data).length){c.innerHTML='<div style="color:var(--text3);text-align:center;padding:40px"><div style="font-size:28px;margin-bottom:8px">&#x1F30A;</div>Pool is populating...<br><span style="font-size:11px">Background refresh runs every 12h.</span></div>';return}
+  const selectAllEl=document.getElementById('poolSelectAllBtn');
+  const importBtn=document.getElementById('poolImportSelectedBtn');
+  if(!data||!Object.keys(data).length){c.innerHTML='<div style="color:var(--text3);text-align:center;padding:40px"><div style="font-size:28px;margin-bottom:8px">&#x1F30A;</div>Pool is populating...<br><span style="font-size:11px">Background refresh runs every 12h.</span></div>';if(selectAllEl)selectAllEl.checked=false;_poolSelected=[];updatePoolImportBtn();return}
+  _poolSelected=[];
   c.innerHTML=Object.entries(data).map(([topic,papers])=>{
     const col=poolTopicColor([topic]);
     return '<div class="pool-topic"><h3><span style="width:8px;height:8px;border-radius:2px;background:'+col+';display:inline-block"></span>'+esc(topic)+' <span class="count">'+(papers||[]).length+' papers</span></h3>'+
@@ -699,7 +745,9 @@ function renderPoolBrowse(data){
         const ps=_poolStore.find(s=>s.arxiv_id===p.arxiv_id);
         const imported=ps&&ps.imported;
         const isNew=ps&&ps.is_new;
-        return '<div class="pool-card"><div class="ptitle">'+esc(p.title)+'</div>'+
+        return '<div class="pool-card"><div class="ptitle">'+
+          (!imported?'<input type="checkbox" class="pool-cb" data-id="'+p.arxiv_id+'" onchange="togglePoolCb(\''+p.arxiv_id+'\')" style="width:auto;margin-right:6px;vertical-align:middle">':'')+
+          esc(p.title)+'</div>'+
           '<div class="pmeta">'+esc(p.authors_str||(p.authors||[]).join(', '))+' &middot; '+p.published+(isNew?' <span class="pool-new-badge">NEW</span>':'')+'</div>'+
           '<div class="pabs" onclick="this.classList.toggle(\'expanded\')">'+esc(p.abstract||'')+'</div>'+
           '<div class="pactions">'+
@@ -709,6 +757,44 @@ function renderPoolBrowse(data){
           '</div></div>';
       }).join('')+'</div>';
   }).join('');
+  if(selectAllEl)selectAllEl.checked=false;
+  updatePoolImportBtn();
+}
+
+function togglePoolCb(aid){
+  const idx=_poolSelected.indexOf(aid);
+  if(idx>-1)_poolSelected.splice(idx,1);else _poolSelected.push(aid);
+  updatePoolImportBtn();
+}
+function toggleSelectAllPool(){
+  const checked=document.getElementById('poolSelectAllBtn').checked;
+  document.querySelectorAll('.pool-cb').forEach(cb=>cb.checked=checked);
+  _poolSelected=(checked?[...document.querySelectorAll('.pool-cb')].map(c=>c.dataset.id):[]);
+  updatePoolImportBtn();
+}
+function updatePoolImportBtn(){
+  const btn=document.getElementById('poolImportSelectedBtn');
+  if(!btn)return;
+  if(_poolSelected.length){btn.style.display='inline-flex';btn.textContent='+ Add Selected ('+_poolSelected.length+')'}
+  else{btn.style.display='none'}
+}
+async function importSelectedFromPool(){
+  const ids=[..._poolSelected];
+  if(!ids.length)return;
+  addLog('Importing '+ids.length+' papers from pool...','INPROGRESS');
+  try{
+    const r=await api('/api/pool/import_batch','POST',{arxiv_ids:ids});
+    const results=r.results||[];
+    const added=results.filter(x=>x.status==='added').length;
+    const existed=results.filter(x=>x.status==='exists').length;
+    addLog('Pool import: '+added+' new, '+existed+' already in KB','DONE');
+    _poolSelected=[];
+    document.querySelectorAll('.pool-cb').forEach(cb=>cb.checked=false);
+    updatePoolImportBtn();
+    loadPoolList();
+    loadPoolGraph();
+    refreshAll();
+  }catch(e){addLog('Pool batch import error: '+e,'ERROR')}
 }
 
 async function loadPoolList(){
@@ -754,18 +840,20 @@ async function loadPoolGraph(){
   try{const data=await api('/api/pool/graph');renderPoolGraph(data)}catch(_){}
 }
 function renderPoolGraph(data){
+  const wrap=document.getElementById('poolGraphWrap');
   const svg=d3.select('#poolGraphWrap svg');svg.selectAll('*').remove();
-  const rect=document.getElementById('poolGraphWrap').getBoundingClientRect();
-  const W=rect.width||800,H=Math.max(rect.height,300);
-  svg.attr('viewBox',[0,0,W,H]);
-  if(!data.nodes||!data.nodes.length){svg.append('text').attr('x',W/2).attr('y',H/2).attr('text-anchor','middle').attr('fill','var(--text3)').attr('font-size','13px').text('No pool graph data');return}
+  const rect=wrap.getBoundingClientRect();
+  const W=rect.width||Math.max(window.innerWidth-120,800);
+  const H=Math.max(rect.height||window.innerHeight-300,300);
+  svg.attr('width',W).attr('height',H).attr('viewBox',[0,0,W,H]);
+  if(!data.nodes||!data.nodes.length){svg.append('text').attr('x',W/2).attr('y',H/2).attr('text-anchor','middle').attr('fill','#64748b').attr('font-size','13px').text('No pool graph data');return}
   const links=data.edges.map(d=>({...d})),nodes=data.nodes.map(d=>({...d}));
   const sim=d3.forceSimulation(nodes).force('link',d3.forceLink(links).id(d=>d.id).distance(120).strength(l=>l.similarity*2)).force('charge',d3.forceManyBody().strength(-200)).force('center',d3.forceCenter(W/2,H/2)).force('collision',d3.forceCollide(35));
-  const link=svg.append('g').selectAll('line').data(links).join('line').attr('stroke','var(--border)').attr('stroke-width',l=>Math.max(.5,l.similarity*4)).attr('stroke-opacity',l=>Math.min(.8,.3+l.similarity));
+  const link=svg.append('g').selectAll('line').data(links).join('line').attr('stroke','#1e3a5f').attr('stroke-width',l=>Math.max(.5,l.similarity*4)).attr('stroke-opacity',l=>Math.min(.8,.3+l.similarity));
   const node=svg.append('g').selectAll('g').data(nodes).join('g').call(d3.drag().on('start',(e,d)=>{if(!e.active)sim.alphaTarget(.3).restart();d.fx=d.x;d.fy=d.y}).on('drag',(e,d)=>{d.fx=e.x;d.fy=e.y}).on('end',(e,d)=>{if(!e.active)sim.alphaTarget(0);d.fx=null;d.fy=null}));
   node.append('rect').attr('width',10).attr('height',10).attr('x',-5).attr('y',-5).attr('rx',2).attr('fill',d=>poolTopicColor(d.topics)).attr('stroke','rgba(255,255,255,.15)').attr('stroke-width',1.5);
-  node.filter(d=>d.is_new).append('text').text('!').attr('x',-5).attr('y',-8).attr('font-size','9px').attr('fill','var(--yellow)').attr('font-weight','700');
-  node.append('text').text(d=>d.label?.substring(0,22)).attr('font-size','9px').attr('dx',12).attr('dy',3.5).attr('fill','var(--text2)');
+  node.filter(d=>d.is_new).append('text').text('!').attr('x',-5).attr('y',-8).attr('font-size','9px').attr('fill','#fbbf24').attr('font-weight','700');
+  node.append('text').text(d=>d.label?.substring(0,22)).attr('font-size','9px').attr('dx',12).attr('dy',3.5).attr('fill','#94a3b8');
   node.append('title').text(d=>d.label+(d.imported?' [Imported]':' [New]')+'\nTopics: '+(d.topics||[]).join(', '));
   sim.on('tick',()=>{link.attr('x1',d=>d.source.x).attr('y1',d=>d.source.y).attr('x2',d=>d.target.x).attr('y2',d=>d.target.y);node.attr('transform',d=>'translate('+d.x+','+d.y+')')});
 }
