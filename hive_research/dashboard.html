@@ -479,10 +479,11 @@ function renderGraph(data){
   const node=svg.append('g').selectAll('g').data(nodes).join('g').call(drag(simulation));
   node.append('title').text(d=>d.label+(d.abstract?'\n'+d.abstract.substring(0,300):'')+(d.definition?'\n'+d.definition:''));
   node.filter(d=>d.type==='paper'||d.group===0).append('rect')
-    .attr('width',12).attr('height',12).attr('x',-6).attr('y',-6).attr('rx',3)
-    .attr('fill','var(--accent)').attr('stroke','rgba(96,165,250,.3)').attr('stroke-width',2);
+    .attr('width',14).attr('height',14).attr('x',-7).attr('y',-7).attr('rx',4)
+    .attr('fill','#60a5fa').attr('stroke','rgba(96,165,250,.5)').attr('stroke-width',2);
+
   node.filter(d=>d.type!=='paper'&&d.group!==0).append('circle')
-    .attr('r',6).attr('fill','var(--purple)').attr('stroke','rgba(192,132,252,.3)').attr('stroke-width',2);
+    .attr('r',7).attr('fill','#c084fc').attr('stroke','rgba(192,132,252,.5)').attr('stroke-width',2);
   node.append('text').text(d=>d.label?.substring(0,25)).attr('font-size','10px').attr('dx',14).attr('dy',4).attr('fill','var(--text2)');
   node.on('mouseenter',function(e,d){
     tooltip.style('opacity',1).html(
@@ -784,6 +785,9 @@ loadHeaderStats();
 loadGraph();
 loadPoolList();
 fetchLogs();
+// Force re-render after layout settles
+setTimeout(()=>{if(el('panel-graph').classList.contains('active')&&gData.nodes)renderGraph(gData)},500);
+setTimeout(()=>{if(el('panel-graph').classList.contains('active')&&gData.nodes)renderGraph(gData)},1500);
 </script>
 </body>
 </html>
