@@ -131,7 +131,9 @@ select{cursor:pointer}
 #graphWrap svg{width:100%;height:100%;display:block}
 #graphEmpty{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;color:var(--text3);pointer-events:none;opacity:.6}
 #graphEmpty .icon{font-size:36px;margin-bottom:8px}
-#graphFilter{position:absolute;top:10px;right:10px;width:200px;z-index:10;border-radius:8px;font-size:12px;background:var(--glass-bg);backdrop-filter:blur(8px)}
+#graphFilterBar input,#graphFilterBar select{font-size:11px}
+#filterExpanded input[type=checkbox]{accent-color:var(--accent)}
+#ftConnected:checked+.ftl,#ftLineage:checked+.ftl{color:var(--accent)}
 #graphLegend{position:absolute;bottom:12px;left:12px;display:flex;gap:14px;font-size:10px;color:var(--text3);z-index:10;background:var(--glass-bg);backdrop-filter:blur(8px);padding:7px 14px;border-radius:8px;border:1px solid var(--border)}
 #graphLegend .l{display:flex;align-items:center;gap:5px}
 #graphLegend .sw{width:9px;height:9px;border-radius:3px}
@@ -321,7 +323,8 @@ select{cursor:pointer}
   .card{padding:16px}
   .stat-card .num{font-size:34px}
   #graphWrap{min-height:400px}
-  #graphFilter{width:220px;font-size:13px;padding:10px 14px;top:12px;right:12px}
+  #graphFilterBar{width:260px;top:12px;right:12px}
+  #graphFilterBar input#graphFilter{font-size:13px;padding:10px 12px}
   #graphLegend{padding:8px 16px;font-size:11px;gap:16px;bottom:14px;left:14px}
   #nodePreview{width:400px;padding:18px;font-size:13px;top:14px;right:14px}
   #tooltip{font-size:12px;padding:10px 14px;max-width:360px}
@@ -467,7 +470,46 @@ select{cursor:pointer}
       <div id="graphWrap">
         <svg></svg>
         <div id="graphEmpty"><div class="icon">&#x1F4DA;</div>No papers yet &mdash; add one to get started</div>
-        <input id="graphFilter" class="tab" placeholder="Filter nodes..." oninput="applyFilter(this.value)">
+        <div id="graphFilterBar" style="position:absolute;top:10px;right:10px;z-index:10;display:flex;flex-direction:column;gap:4px;width:240px">
+          <div style="display:flex;gap:4px">
+            <input id="graphFilter" placeholder="Search name, author, abstract..." oninput="applyGraphFilter()" style="flex:1;border-radius:8px;font-size:12px;background:var(--glass-bg);backdrop-filter:blur(8px)">
+            <button id="filterToggleBtn" onclick="toggleFilterPanel()" style="width:32px;border-radius:8px;font-size:14px;background:var(--glass-bg);backdrop-filter:blur(8px);border:1px solid var(--border);color:var(--text3);cursor:pointer" title="Advanced filters">&#x2630;</button>
+            <button onclick="clearGraphFilters()" style="width:32px;border-radius:8px;font-size:14px;background:var(--glass-bg);backdrop-filter:blur(8px);border:1px solid var(--border);color:var(--red);cursor:pointer" title="Clear filters">&#x2716;</button>
+          </div>
+          <div id="filterExpanded" style="display:none;background:var(--glass-bg3);backdrop-filter:blur(12px);border:1px solid var(--border);border-radius:8px;padding:10px;font-size:11px">
+            <div style="margin-bottom:6px"><label style="color:var(--text3);display:block;margin-bottom:2px;font-size:10px">Node type</label>
+              <div style="display:flex;gap:6px;flex-wrap:wrap">
+                <label style="cursor:pointer;display:flex;align-items:center;gap:3px"><input type="checkbox" id="ftPaper" checked onchange="applyGraphFilter()" style="width:auto;margin:0"><span style="color:var(--accent)">Paper</span></label>
+                <label style="cursor:pointer;display:flex;align-items:center;gap:3px"><input type="checkbox" id="ftWeb" checked onchange="applyGraphFilter()" style="width:auto;margin:0"><span style="color:#fb923c">Web</span></label>
+                <label style="cursor:pointer;display:flex;align-items:center;gap:3px"><input type="checkbox" id="ftConcept" checked onchange="applyGraphFilter()" style="width:auto;margin:0"><span style="color:var(--purple)">Concept</span></label>
+              </div>
+            </div>
+            <div style="margin-bottom:6px"><label style="color:var(--text3);display:block;margin-bottom:2px;font-size:10px">Relation</label>
+              <select id="ftRelation" onchange="applyGraphFilter()" style="font-size:11px;padding:4px 6px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--text);width:100%">
+                <option value="">Any relation</option>
+                <option value="cites">Cites</option>
+                <option value="related_to">Related to</option>
+                <option value="introduces">Introduces</option>
+                <option value="uses">Uses</option>
+                <option value="proposes">Proposes</option>
+                <option value="extends">Extends</option>
+                <option value="compares">Compares</option>
+                <option value="applies">Applies</option>
+              </select>
+            </div>
+            <div style="margin-bottom:6px;display:flex;gap:8px;align-items:center">
+              <label style="cursor:pointer;display:flex;align-items:center;gap:3px;font-size:10px;color:var(--text3)"><input type="checkbox" id="ftConnected" onchange="applyGraphFilter()" style="width:auto;margin:0"> Connected only</label>
+              <label style="cursor:pointer;display:flex;align-items:center;gap:3px;font-size:10px;color:var(--text3)"><input type="checkbox" id="ftLineage" onchange="toggleLineageFilter()" style="width:auto;margin:0"> Lineage</label>
+            </div>
+            <div style="margin-bottom:4px;display:flex;gap:6px;align-items:center">
+              <label style="color:var(--text3);font-size:10px;white-space:nowrap">Year</label>
+              <input id="ftYearFrom" type="number" placeholder="From" min="1900" max="2030" onchange="applyGraphFilter()" style="width:60px;font-size:11px;padding:3px 6px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--text)">
+              <span style="color:var(--text3);font-size:10px">-</span>
+              <input id="ftYearTo" type="number" placeholder="To" min="1900" max="2030" onchange="applyGraphFilter()" style="width:60px;font-size:11px;padding:3px 6px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--text)">
+            </div>
+            <div style="color:var(--text3);font-size:10px" id="filterResultCount"></div>
+          </div>
+        </div>
         <div id="graphLegend"><div class="l"><div class="sw" style="background:var(--accent)"></div> Paper</div><div class="l"><div class="sw" style="background:#2dd4bf"></div> Lineage</div><div class="l"><div class="sw" style="background:#fb923c"></div> Web</div><div class="l"><div class="sw cir" style="background:var(--purple)"></div> Concept</div><div class="l" style="color:var(--green)">&#x2192; cites</div></div>
         <div id="tooltip"></div>
         <div id="nodePreview">
@@ -712,6 +754,7 @@ select{cursor:pointer}
 <script>
 // ── State ──
 let gData = {nodes:[],links:[]};
+let _filteredData = null;
 let simulation = null;
 let searchResults = [];
 let _poolStore = [];
@@ -843,7 +886,8 @@ function toggleTheme(){
   el('themeToggle').textContent=isLight?'\u2600':'\u263E';
   // Update graph edge colors for theme
   GS.edgeColor=isLight?'#3b82f6':'#60a5fa';
-  if(gData&&gData.nodes&&gData.nodes.length)renderGraph(gData);
+  const renderData=_filteredData||gData;
+  if(renderData&&renderData.nodes&&renderData.nodes.length)renderGraph(renderData);
 }
 (function(){
   const saved=localStorage.getItem('hive_theme');
@@ -867,7 +911,23 @@ function switchPanel(name){
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   el('panel-'+name).classList.add('active');
   document.querySelector('.nav-item[data-panel="'+name+'"]').classList.add('active');
-  if(name==='graph'&&gData.nodes&&gData.nodes.length)setTimeout(()=>renderGraph(gData),50);
+  if(name==='graph'&&gData.nodes&&gData.nodes.length){
+    const q=el('graphFilter')?.value?.trim();
+    const r=el('ftRelation')?.value;
+    const co=el('ftConnected')?.checked;
+    const li=el('ftLineage')?.checked;
+    const yf=el('ftYearFrom')?.value;
+    const yt=el('ftYearTo')?.value;
+    const types=[];
+    if(el('ftPaper')?.checked)types.push('paper');
+    if(el('ftWeb')?.checked)types.push('web');
+    if(el('ftConcept')?.checked)types.push('concept');
+    if(q||types.length<3||r||co||li||yf||yt){
+      setTimeout(()=>applyGraphFilter(),50);
+    }else{
+      setTimeout(()=>renderGraph(gData),50);
+    }
+  }
   if(name==='browse')loadBrowse();
   if(name==='pool')loadPoolPanel();
   if(name==='import'){document.getElementById('webUrlInput').focus();loadWebList();}
@@ -961,7 +1021,8 @@ function applyGraphStyle(){
   document.getElementById('gcPaperSizeV').textContent=GS.paperSize;
   document.getElementById('gcConceptSizeV').textContent=GS.conceptSize;
   saveGraphStyle();
-  if(gData.nodes&&gData.nodes.length)renderGraph(gData);
+  const rd=_filteredData||gData;
+  if(rd.nodes&&rd.nodes.length)renderGraph(rd);
 }
 function resetGraphStyle(){
   const isLight=document.body.classList.contains('light');
@@ -973,7 +1034,8 @@ function resetGraphStyle(){
   set('gcPaperSize',GS.paperSize);set('gcConceptSize',GS.conceptSize);
   document.getElementById('gcPaperSizeV').textContent=GS.paperSize;
   document.getElementById('gcConceptSizeV').textContent=GS.conceptSize;
-  if(gData.nodes&&gData.nodes.length)renderGraph(gData);
+  const renderData=_filteredData||gData;
+  if(renderData.nodes&&renderData.nodes.length)renderGraph(renderData);
 }
 
 // ── Knowledge Graph / Vector View ──
@@ -1130,10 +1192,79 @@ function renderGraph(data){
     node.attr('transform',d=>'translate('+d.x+','+d.y+')');
   });
 }
-function applyFilter(val){
-  if(!gData.nodes)return;
-  const l=val.toLowerCase();
-  d3.selectAll('#graphWrap g g').attr('opacity',d=>!l||d.label?.toLowerCase().includes(l)?1:.15);
+function toggleFilterPanel(){
+  const p=el('filterExpanded');
+  p.style.display=p.style.display==='none'?'block':'none';
+  el('filterToggleBtn').style.color=p.style.display==='block'?'var(--accent)':'var(--text3)';
+}
+
+function clearGraphFilters(){
+  el('graphFilter').value='';
+  el('ftRelation').value='';
+  el('ftConnected').checked=false;
+  el('ftLineage').checked=false;
+  el('ftYearFrom').value='';
+  el('ftYearTo').value='';
+  el('ftPaper').checked=true;
+  el('ftWeb').checked=true;
+  el('ftConcept').checked=true;
+  el('filterResultCount').textContent='';
+  applyGraphFilter();
+}
+
+function toggleLineageFilter(){
+  const cb=el('ftLineage');
+  if(cb.checked){
+    el('ftRelation').value='cites';
+  }
+  applyGraphFilter();
+}
+
+async function applyGraphFilter(){
+  const query=el('graphFilter').value.trim();
+  const types=[];
+  if(el('ftPaper').checked)types.push('paper');
+  if(el('ftWeb').checked)types.push('web');
+  if(el('ftConcept').checked)types.push('concept');
+  const relation=el('ftRelation').value;
+  const connected_only=el('ftConnected').checked;
+  const lineage=el('ftLineage').checked;
+  const yearFrom=el('ftYearFrom').value;
+  const yearTo=el('ftYearTo').value;
+
+  if(!query && types.length===3 && !relation && !connected_only && !lineage && !yearFrom && !yearTo){
+    _filteredData=null;
+    if(gData && gData.nodes && gData.nodes.length){
+      if(el('panel-graph').classList.contains('active'))renderGraph(gData);
+    }else{
+      gData=await api('/api/graph');
+      if(el('panel-graph').classList.contains('active')&&gData.nodes&&gData.nodes.length)renderGraph(gData);
+    }
+    el('graphBadge').textContent=(gData.nodes?.length||0)+' nodes';
+    el('filterResultCount').textContent='';
+    return;
+  }
+
+  try{
+    const params=new URLSearchParams();
+    if(query)params.set('query',query);
+    if(types.length<3)params.set('types',types.join(','));
+    if(relation)params.set('relation',relation);
+    if(lineage)params.set('relation','cites');
+    if(connected_only || lineage)params.set('connected_only','1');
+    if(yearFrom)params.set('date_from',yearFrom+'-01-01');
+    if(yearTo)params.set('date_to',yearTo+'-12-31');
+
+    const url='/api/graph/filter?'+params.toString();
+    const filtered=await api(url);
+    _filteredData=filtered;
+    const count=filtered.nodes?filtered.nodes.length:0;
+    el('filterResultCount').textContent=count+' nodes'+(query||relation||connected_only||lineage||yearFrom||yearTo?' (filtered)':'');
+    el('graphBadge').textContent=count+' nodes';
+    if(el('panel-graph').classList.contains('active'))renderGraph(filtered);
+  }catch(e){
+    addLog('Filter error: '+e,'ERROR');
+  }
 }
 
 // ── Node Preview ──
@@ -2309,9 +2440,23 @@ async function loadGraph(){
   try{
     gData=await api('/api/graph');
     if(el('panel-graph').classList.contains('active')&&gData.nodes&&gData.nodes.length){
-      setTimeout(()=>renderGraph(gData),50);
+      // Check if filters are active before rendering full graph
+      const q=el('graphFilter')?.value?.trim();
+      const types=[];
+      if(el('ftPaper')?.checked)types.push('paper');
+      if(el('ftWeb')?.checked)types.push('web');
+      if(el('ftConcept')?.checked)types.push('concept');
+      const r=el('ftRelation')?.value;
+      const co=el('ftConnected')?.checked;
+      const li=el('ftLineage')?.checked;
+      const yf=el('ftYearFrom')?.value;
+      const yt=el('ftYearTo')?.value;
+      if(q||types.length<3||r||co||li||yf||yt){
+        applyGraphFilter();
+      }else{
+        setTimeout(()=>renderGraph(gData),50);
+      }
     }else{
-      // Fallback: retry once after data arrives
       setTimeout(()=>{if(el('panel-graph').classList.contains('active')&&gData.nodes&&gData.nodes.length)renderGraph(gData)},500);
     }
   }catch(_){}
@@ -2320,7 +2465,15 @@ async function loadGraph(){
 let _resizeTimer;
 window.addEventListener('resize',()=>{
   clearTimeout(_resizeTimer);
-  _resizeTimer=setTimeout(()=>{if(el('panel-graph').classList.contains('active')&&gData.nodes&&gData.nodes.length)renderGraph(gData)},300);
+  _resizeTimer=setTimeout(()=>{
+    if(!el('panel-graph').classList.contains('active')||!gData.nodes||!gData.nodes.length)return;
+    const q=el('graphFilter')?.value?.trim();
+    const r=el('ftRelation')?.value;
+    const co=el('ftConnected')?.checked;
+    const yf=el('ftYearFrom')?.value;
+    const yt=el('ftYearTo')?.value;
+    if(q||r||co||yf||yt){applyGraphFilter()}else{renderGraph(gData)}
+  },300);
 });
 
 // ── Init ──

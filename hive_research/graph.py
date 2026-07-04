@@ -169,5 +169,144 @@ class KnowledgeGraph:
             "cross_edges": s.cross_edges,
         }
 
+    def filter_nodes(
+        self,
+        query: str | None = None,
+        types: list[str] | None = None,
+        relation: str | None = None,
+        connected_only: bool = False,
+        date_from: str | None = None,
+        date_to: str | None = None,
+        concept_type: str | None = None,
+        categories: list[str] | None = None,
+    ) -> list[Node]:
+        nodes = list(self._hive.nodes)
+
+        if query:
+            q = query.lower()
+            nodes = [
+                n for n in nodes
+                if q in (n.label or "").lower()
+                or q in (getattr(n, "authors", "") or "").lower()
+                or q in (getattr(n, "abstract", "") or "").lower()
+                or q in (getattr(n, "definition", "") or "").lower()
+                or q in (getattr(n, "affiliations", "") or "").lower()
+            ]
+
+        if types:
+            type_set = set(types)
+            nodes = [n for n in nodes if str(n.type).lower() in type_set]
+
+        if relation:
+            linked_ids: set[str] = set()
+            for e in self._hive.edges:
+                if e.relation == relation:
+                    linked_ids.add(e.source)
+                    linked_ids.add(e.target)
+            nodes = [n for n in nodes if n.id in linked_ids]
+
+        if connected_only:
+            edge_ids: set[str] = set()
+            for e in self._hive.edges:
+                edge_ids.add(e.source)
+                edge_ids.add(e.target)
+            nodes = [n for n in nodes if n.id in edge_ids]
+
+        if date_from or date_to:
+            filtered = []
+            for n in nodes:
+                pub = getattr(n, "published", "") or ""
+                if pub:
+                    pub_date = pub[:10]
+                    if date_from and pub_date < date_from:
+                        continue
+                    if date_to and pub_date > date_to:
+                        continue
+                filtered.append(n)
+            nodes = filtered
+
+        if concept_type:
+            nodes = [
+                n for n in nodes
+                if getattr(n, "concept_type", "") == concept_type
+            ]
+
+        if categories:
+            cat_set = set(categories)
+            nodes = [
+                n for n in nodes
+                if cat_set & set(getattr(n, "categories", []) or [])
+            ]
+
+        return nodes
+
+    def filter_edges(
+        self,
+        relation: str | None = None,
+        source_types: list[str] | None = None,
+        target_types: list[str] | None = None,
+        node_ids: set[str] | None = None,
+    ) -> list[Edge]:
+        edges = list(self._hive.edges)
+
+        if relation:
+            edges = [e for e in edges if e.relation == relation]
+
+        if node_ids:
+            edges = [e for e in edges if e.source in node_ids or e.target in node_ids]
+
+        if source_types or target_types:
+            node_map = {n.id: n for n in self._hive.nodes}
+            if source_types:
+                st_set = set(source_types)
+                edges = [
+                    e for e in edges
+                    if (src := node_map.get(e.source)) and str(src.type).lower() in st_set
+                ]
+            if target_types:
+                tt_set = set(target_types)
+                edges = [
+                    e for e in edges
+                    if (tgt := node_map.get(e.target)) and str(tgt.type).lower() in tt_set
+                ]
+
+        return edges
+
+    def filtered_to_node_link(
+        self,
+        query: str | None = None,
+        types: list[str] | None = None,
+        relation: str | None = None,
+        connected_only: bool = False,
+        date_from: str | None = None,
+        date_to: str | None = None,
+        concept_type: str | None = None,
+        categories: list[str] | None = None,
+    ) -> dict[str, Any]:
+        nodes = self.filter_nodes(
+            query=query,
+            types=types,
+            relation=relation,
+            connected_only=connected_only,
+            date_from=date_from,
+            date_to=date_to,
+            concept_type=concept_type,
+            categories=categories,
+        )
+        node_ids = {n.id for n in nodes}
+        edges = [e for e in self._hive.edges if e.source in node_ids and e.target in node_ids]
+        if relation:
+            edges = [e for e in edges if e.relation == relation]
+        return {
+            "nodes": [{"id": n.id, "label": n.label, "type": n.type} | {
+                k: getattr(n, k, "")
+                for k in ("authors", "published", "abstract", "definition",
+                          "affiliations", "categories", "concept_type", "arxiv_id")
+                if getattr(n, k, None)
+            } for n in nodes],
+            "links": [{"source": e.source, "target": e.target, "relation": e.relation}
+                      for e in edges],
+        }
+
     def to_node_link(self) -> dict[str, Any]:
         return self._hive.to_node_link_dict()

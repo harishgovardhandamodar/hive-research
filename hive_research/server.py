@@ -71,6 +71,17 @@ class RouteHandler(BaseHTTPRequestHandler):
             self._serve_debug_graph()
         elif path == "/api/graph":
             _json_response(self, self.org.graph_data())
+        elif path == "/api/graph/filter":
+            kw = {}
+            if params.get("query"): kw["query"] = params["query"]
+            if params.get("types"): kw["types"] = [t.strip() for t in params["types"].split(",") if t.strip()]
+            if params.get("relation"): kw["relation"] = params["relation"]
+            if params.get("connected_only"): kw["connected_only"] = params["connected_only"] in ("1", "true", "yes")
+            if params.get("date_from"): kw["date_from"] = params["date_from"]
+            if params.get("date_to"): kw["date_to"] = params["date_to"]
+            if params.get("concept_type"): kw["concept_type"] = params["concept_type"]
+            if params.get("categories"): kw["categories"] = [c.strip() for c in params["categories"].split(",") if c.strip()]
+            _json_response(self, self.org.kg.filtered_to_node_link(**kw))
         elif path == "/api/stats":
             _json_response(self, self.org.stats())
         elif path == "/api/similarity":
@@ -447,7 +458,22 @@ info.textContent += ' | OK';
         except json.JSONDecodeError:
             data = {}
 
-        if path == "/api/add":
+        if path == "/api/graph/filter":
+            kw = {}
+            for key in ("query", "relation", "date_from", "date_to", "concept_type"):
+                val = data.get(key) or params.get(key)
+                if val: kw[key] = val
+            if data.get("types") or params.get("types"):
+                raw = data.get("types") or params.get("types", "")
+                kw["types"] = raw if isinstance(raw, list) else [t.strip() for t in raw.split(",") if t.strip()]
+            if data.get("categories") or params.get("categories"):
+                raw = data.get("categories") or params.get("categories", "")
+                kw["categories"] = raw if isinstance(raw, list) else [c.strip() for c in raw.split(",") if c.strip()]
+            if data.get("connected_only") or params.get("connected_only"):
+                raw = str(data.get("connected_only", params.get("connected_only", "")))
+                kw["connected_only"] = raw in ("1", "true", "yes")
+            _json_response(self, self.org.kg.filtered_to_node_link(**kw))
+        elif path == "/api/add":
             arxiv_id = data.get("id", params.get("id", ""))
             if not arxiv_id:
                 _json_response(self, {"error": "missing id"}, 400)
