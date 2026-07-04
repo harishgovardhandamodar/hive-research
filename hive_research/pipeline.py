@@ -242,7 +242,16 @@ class PaperPipeline:
         if notes:
             lines.extend(["## Notes", "", notes, ""])
         if experiment and isinstance(experiment, dict):
-            exp = {k: v for k, v in experiment.items() if v}
+            exp = {}
+            for k, v in experiment.items():
+                if v is None or v == "":
+                    continue
+                if isinstance(v, list):
+                    exp[k] = ", ".join(str(x) for x in v)
+                elif isinstance(v, dict):
+                    exp[k] = "; ".join(f"{sk}: {sv}" for sk, sv in v.items() if sv)
+                else:
+                    exp[k] = str(v)
             if exp:
                 lines.extend(["## Experiment", ""])
                 for k, v in exp.items():
@@ -250,12 +259,23 @@ class PaperPipeline:
                 lines.append("")
         if results and isinstance(results, dict):
             res_parts = []
-            if results.get("main_findings"):
-                res_parts.append(results["main_findings"])
+            mf = results.get("main_findings")
+            if mf:
+                if isinstance(mf, list):
+                    res_parts.extend(mf)
+                else:
+                    res_parts.append(str(mf))
             if results.get("metrics") and isinstance(results["metrics"], dict):
-                metrics_str = "; ".join(f"{k}: {v}" for k, v in results["metrics"].items() if v)
-                if metrics_str:
-                    res_parts.append(f"Metrics: {metrics_str}")
+                m_items = []
+                for mk, mv in results["metrics"].items():
+                    if mv is None or mv == "":
+                        continue
+                    if isinstance(mv, (list, tuple)):
+                        m_items.append(f"{mk}: {', '.join(str(x) for x in mv)}")
+                    else:
+                        m_items.append(f"{mk}: {mv}")
+                if m_items:
+                    res_parts.append("Metrics: " + " | ".join(m_items))
             if res_parts:
                 lines.extend(["## Results", ""])
                 for part in res_parts:
@@ -274,6 +294,7 @@ class PaperPipeline:
             for c in concepts:
                 if c.get("definition"):
                     lines.append(f"- **{c.get('name', c.get('label', ''))}**: {c['definition']}")
+        safe_lines = [str(item) if not isinstance(item, str) else item for item in lines]
         with open(path, "w") as f:
-            f.write("\n".join(lines))
+            f.write("\n".join(safe_lines))
         return path

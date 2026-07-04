@@ -239,7 +239,8 @@ textarea{resize:vertical;min-height:60px;font-family:inherit}
 <!-- ── Graph Panel ── -->
 <div class="panel" id="panel-graph">
   <div class="panel-header"><h2>Knowledge Graph <span class="badge" id="graphBadge">0 nodes</span>
-    <button class="btn btn-sm" onclick="generateDefs()" style="margin-left:auto;font-size:10px">&#x1F4DD; Fill Definitions</button>
+    <button class="btn btn-sm" onclick="refreshPapers()" style="margin-left:auto;font-size:10px">&#x1F504; Refresh</button>
+    <button class="btn btn-sm" onclick="generateDefs()" style="font-size:10px">&#x1F4DD; Fill Definitions</button>
     <button class="btn btn-sm btn-outline" onclick="toggleGraphControls()" style="font-size:12px;margin-left:4px" id="gcToggle">&#x2699;</button>
   </h2></div>
   <div class="panel-body" style="padding-top:8px">
@@ -593,6 +594,16 @@ async function loadHeaderStats(){
   }catch(_){}
 }
 
+// ── Refresh Papers ──
+async function refreshPapers(){
+  addLog('Refreshing papers...','INPROGRESS');
+  try{
+    const r=await api('/api/refresh','POST');
+    if(r.refreshed>0){addLog('Refreshed '+r.refreshed+' papers','DONE');refreshAll();loadBrowse()}
+    else{addLog('All papers already have notes/experiment/results','DONE')}
+  }catch(e){addLog('Refresh error: '+e,'ERROR')}
+}
+
 // ── Graph Style Controls ──
 let GS={paperColor:'#60a5fa',lineageColor:'#2dd4bf',webColor:'#fb923c',conceptColor:'#c084fc',edgeColor:'#1e3a5f',citeColor:'#34d399',paperSize:14,conceptSize:7};
 (function(){
@@ -765,8 +776,21 @@ function showNodePreview(d){
     if(d.affiliations)more+='<div><b>Affiliations:</b> '+esc(d.affiliations)+'</div>';
     if(d.abstract)abs=esc(d.abstract.substring(0,500));
     else if(d.definition&&d.type==='web')abs=esc(d.definition);
+    // Check for cites edges (lineage)
+    const hasCite=gData.links&&gData.links.some(l=>l.relation==='cites'&&(l.source===d.id||l.target===d.id));
+    if(hasCite)more+='<div><b>&#x1F517; Lineage:</b> Prior research linked</div>';
     if(d.arxiv_id)actions+='<a href="https://arxiv.org/abs/'+d.arxiv_id+'" target="_blank" class="btn btn-sm">arXiv</a>';
     if(d.arxiv_id)actions+='<a href="https://arxiv.org/pdf/'+d.arxiv_id+'" target="_blank" class="btn btn-sm btn-outline">PDF</a>';
+    // Look up note path from papers API
+    (async()=>{
+      try{
+        const pp=await api('/api/papers');
+        const match=pp.find(p=>p.id===d.id);
+        if(match&&match.note_path){
+          el('previewActions').innerHTML+=match.note_path?'<button class="btn btn-sm btn-outline" onclick="window.open(\'/api/raw?path='+encodeURIComponent(match.note_path)+'\',\'_blank\')">MD</button>':'';
+        }
+      }catch(_){}
+    })();
     if(d.definition&&d.type==='web'){
       const lines=d.definition.split('\n');
       const urlLine=lines.find(l=>l.startsWith('URL:'));
@@ -928,7 +952,19 @@ async function loadBrowse(){
 }
 
 function renderPapers(papers){
-  el('browsePapers').innerHTML=papers.length?papers.map(p=>'<div class="paper-row"><div class="info"><h4>'+esc(p.title)+'</h4><div class="sub">'+esc(p.authors)+' &middot; '+p.id+' &middot; '+p.published+(p.affiliations?'<br><span style="color:var(--text3);font-size:10px">'+esc(p.affiliations)+'</span>':'')+'</div></div><button class="btn btn-sm btn-outline lineage-btn" data-id="'+p.id+'" onclick="fetchLineage(\''+p.id+'\')">&#x1F50D; Lineage</button></div>').join(''):'<div style="color:var(--text3);text-align:center;padding:20px">No papers ingested yet</div>';
+  el('browsePapers').innerHTML=papers.length?papers.map(p=>'<div class="paper-row"><div class="info"><h4>'+esc(p.title)+'</h4><div class="sub">'+esc(p.authors)+' &middot; '+p.id+' &middot; '+p.published+(p.affiliations?'<br><span style="color:var(--text3);font-size:10px">'+esc(p.affiliations)+'</span>':'')+'</div></div>'+
+    '<div style="display:flex;gap:4px;flex-shrink:0">'+
+    (p.has_lineage?'<span class="pool-imported" title="Prior research fetched">&#x1F517;</span>':'')+
+    (p.has_extra?'<span class="pool-imported" title="Notes extracted">&#x1F4DD;</span>':'')+
+    (p.note_path?'<button class="btn btn-sm btn-outline" onclick="openNotePreview(\''+esc(p.note_path)+'\')" style="font-size:9px">MD</button>':'')+
+    '<button class="btn btn-sm btn-outline lineage-btn" onclick="fetchLineage(\''+p.id+'\')">&#x1F50D;</button>'+
+    '</div></div>').join(''):'<div style="color:var(--text3);text-align:center;padding:20px">No papers ingested yet</div>';
+}
+
+function openNotePreview(path){
+  addLog('Opening note: '+path,'INFO');
+  // Show in graph preview if available, or open in new tab
+  window.open('/api/raw?path='+encodeURIComponent(path),'_blank');
 }
 
 function searchPapers(){

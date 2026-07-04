@@ -74,10 +74,23 @@ class RouteHandler(BaseHTTPRequestHandler):
         elif path == "/api/similarity":
             _json_response(self, self.org.similarity())
         elif path == "/api/papers":
-            papers = [
-                {"id": n.id, "title": n.label, "authors": n.authors, "published": n.published, "affiliations": n.affiliations}
-                for n in self.org.kg.papers
-            ]
+            from .pipeline import _sanitize_id
+            has_lineage = set()
+            for e in self.org.kg._hive.edges:
+                if e.relation == "cites":
+                    has_lineage.add(e.source)
+            papers = []
+            for n in self.org.kg.papers:
+                safe = _sanitize_id(n.label) or n.id
+                note_file = Path(self.org.config.vault_dir) / f"{safe}.md"
+                note_path = str(note_file) if note_file.exists() else ""
+                papers.append({
+                    "id": n.id, "title": n.label, "authors": n.authors,
+                    "published": n.published, "affiliations": n.affiliations,
+                    "note_path": note_path,
+                    "has_lineage": n.id in has_lineage,
+                    "has_extra": bool(n.definition and n.definition.startswith("{")),
+                })
             _json_response(self, papers)
         elif path == "/api/papers/search":
             q = params.get("q", "").lower()
@@ -93,6 +106,13 @@ class RouteHandler(BaseHTTPRequestHandler):
                 for n in self.org.kg.concepts
             ]
             _json_response(self, concepts)
+        elif path == "/api/raw":
+            file_path = params.get("path", "")
+            if file_path and Path(file_path).exists():
+                content = Path(file_path).read_text()
+                _html_response(self, f"<pre style='background:#0a0e17;color:#e2e8f0;padding:20px;font-size:13px;line-height:1.7;white-space:pre-wrap'>{content}</pre>")
+            else:
+                _json_response(self, {"error": "not found"}, 404)
         elif path == "/api/web/list":
             from hive_datatype import NodeType
             web_nodes = [
@@ -290,6 +310,9 @@ info.textContent += ' | OK';
                 _json_response(self, {"error": "missing url"}, 400)
                 return
             result = self.org.web.ingest(url)
+            _json_response(self, result)
+        elif path == "/api/refresh":
+            result = self.org.refresh_papers()
             _json_response(self, result)
         elif path == "/api/definitions":
             result = self.org.generate_definitions()

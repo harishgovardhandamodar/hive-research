@@ -93,6 +93,61 @@ class Organizer:
     def graph_data(self) -> dict[str, Any]:
         return self.kg.to_node_link()
 
+    def notes_path_for(self, paper_id: str) -> str | None:
+        n = self.kg.get_paper(paper_id)
+        if not n:
+            return None
+        from .pipeline import _sanitize_id
+        safe = _sanitize_id(n.label) or paper_id
+        p = Path(self.config.vault_dir) / f"{safe}.md"
+        return str(p) if p.exists() else None
+
+    def refresh_papers(self) -> dict[str, Any]:
+        import json as _json
+        from .parser import extract_text
+        from hive_datatype import NodeType
+        import threading
+        refreshed = [0]
+        def _do_refresh():
+            for node in self.kg._hive.nodes:
+                if node.type != NodeType.PAPER:
+                    continue
+                has_extra = False
+                if node.definition:
+                    try:
+                        parsed = _json.loads(node.definition)
+                        has_extra = bool(parsed.get("notes") or parsed.get("experiment") or parsed.get("results"))
+                    except Exception:
+                        has_extra = False
+                if has_extra:
+                    continue
+                pdf_path = self.config.papers_dir / f"{node.arxiv_id}.pdf"
+                if not pdf_path.exists():
+                    continue
+                text = extract_text(pdf_path)
+                if not text:
+                    continue
+                logger.info("Refreshing %s — %s", node.arxiv_id, node.label[:60])
+                analysis = self.pipeline._analyze_text(text, node.label)
+                notes = analysis.get("notes", "")
+                experiment = analysis.get("experiment", {})
+                results = analysis.get("results", {})
+                extra = _json.dumps({"notes": notes, "experiment": experiment, "results": results})
+                node.definition = extra[:2000]
+                paper_info = fetch_by_id(node.arxiv_id.split("v")[0] if "v" in (node.arxiv_id or "") else node.arxiv_id)
+                if paper_info:
+                    summary = analysis.get("summary", "")
+                    tags = analysis.get("tags", [])
+                    concepts_data = analysis.get("concepts", [])
+                    self.pipeline._write_note(node.arxiv_id, paper_info, summary, tags, concepts_data, notes, experiment, results)
+                refreshed[0] += 1
+            if refreshed[0]:
+                self.kg.save()
+                logger.info("Refresh complete: %d papers updated", refreshed[0])
+        t = threading.Thread(target=_do_refresh, daemon=True)
+        t.start()
+        return {"status": "started", "message": f"Refreshing papers in background. Check activity log for progress."}
+
     def generate_definitions(self) -> dict[str, Any]:
         from hive_datatype import NodeType
         concepts_no_def = [
