@@ -260,11 +260,9 @@ textarea{resize:vertical;min-height:60px;font-family:inherit}
 </div>
 <div class="body">
 <div class="sidebar" id="sidebar">
-  <div class="nav-item active" data-panel="pool" onclick="switchPanel('pool')">&#x25E2;<span class="tip">Pool</span></div>
-  <div class="nav-item" data-panel="graph" onclick="switchPanel('graph')">&#x25E1;<span class="tip">Graph</span></div>
-  <div class="nav-item" data-panel="add" onclick="switchPanel('add')">&#x271A;<span class="tip">Add Paper</span></div>
-  <div class="nav-item" data-panel="web" onclick="switchPanel('web')">&#x1F310;<span class="tip">Web Link</span></div>
-  <div class="nav-item" data-panel="search" onclick="switchPanel('search')">&#x2315;<span class="tip">Search</span></div>
+  <div class="nav-item" data-panel="pool" onclick="switchPanel('pool')">&#x25E2;<span class="tip">Pool</span></div>
+  <div class="nav-item active" data-panel="graph" onclick="switchPanel('graph')">&#x25E1;<span class="tip">Graph</span></div>
+  <div class="nav-item" data-panel="import" onclick="switchPanel('import')">&#x271A;<span class="tip">Import</span></div>
   <div class="nav-item" data-panel="browse" onclick="switchPanel('browse')">&#x2630;<span class="tip">Browse</span></div>
   <div class="nav-item" data-panel="similarity" onclick="switchPanel('similarity')">&#x2248;<span class="tip">Similarity</span></div>
   <div class="nav-item" data-panel="query" onclick="switchPanel('query')">&#x1F4AC;<span class="tip">Chat</span></div>
@@ -315,56 +313,51 @@ textarea{resize:vertical;min-height:60px;font-family:inherit}
   </div>
 </div>
 
-<!-- ── Add Panel ── -->
-<div class="panel" id="panel-add">
-  <div class="panel-header"><h2>Add Paper</h2></div>
+<!-- ── Import Panel (merged Add Paper + Web Link + Search) ── -->
+<div class="panel" id="panel-import">
+  <div class="panel-header"><h2>Import <span class="badge">Add</span></h2></div>
   <div class="panel-body">
-    <div class="card">
-      <div class="card-header">arXiv ID or URL</div>
-      <div class="btn-group" style="margin-bottom:8px">
-        <input id="arxivInput" placeholder="e.g. 1706.03762 or https://arxiv.org/abs/..." onkeydown="if(event.key==='Enter')addPaper()">
-      </div>
-      <button class="btn" onclick="addPaper()">&#x271A; Add Paper</button>
+    <div style="display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:12px">
+      <div class="import-tab active" data-sub="arxiv" onclick="switchImportTab('arxiv',this)" style="padding:6px 14px;cursor:pointer;font-size:11px;border-bottom:2px solid var(--accent);color:var(--accent);font-weight:500">&#x271A; Paper</div>
+      <div class="import-tab" data-sub="web" onclick="switchImportTab('web',this)" style="padding:6px 14px;cursor:pointer;font-size:11px;color:var(--text3)">&#x1F310; Web Link</div>
+      <div class="import-tab" data-sub="search" onclick="switchImportTab('search',this)" style="padding:6px 14px;cursor:pointer;font-size:11px;color:var(--text3)">&#x2315; Search</div>
     </div>
-  </div>
-</div>
-
-<!-- ── Web Link Panel ── -->
-<div class="panel" id="panel-web">
-  <div class="panel-header"><h2>Web Link <span class="badge">Blog / Article</span></h2>
-    <button class="btn btn-sm btn-outline" onclick="loadWebList()" style="margin-left:auto;font-size:10px">&#x1F504; Refresh</button>
-  </div>
-  <div class="panel-body">
-    <div class="card">
-      <div class="card-header">Add New URL</div>
-      <div class="btn-group" style="margin-bottom:8px">
-        <input id="webUrlInput" placeholder="https://example.com/blog/..." onkeydown="if(event.key==='Enter')ingestWeb()">
-      </div>
-      <button class="btn" onclick="ingestWeb()">&#x1F310; Ingest Web Link</button>
-    </div>
-    <div id="webResult"></div>
-    <div class="card" style="flex:1;overflow-y:auto">
-      <div class="card-header">Ingested Articles</div>
-      <div id="webList"></div>
-    </div>
-  </div>
-</div>
-
-<!-- ── Search Panel ── -->
-<div class="panel" id="panel-search">
-  <div class="panel-header"><h2>Search <span class="badge">arXiv</span></h2></div>
-  <div class="panel-body">
-    <div class="card">
-      <div class="card-header">Search Query</div>
-      <div class="btn-group" style="margin-bottom:8px">
-        <input id="searchInput" placeholder="e.g. transformer attention mechanism" onkeydown="if(event.key==='Enter')searchArxiv()">
-      </div>
-      <div class="btn-group">
-        <button class="btn" onclick="searchArxiv()">&#x2315; Search</button>
-        <button class="btn btn-success" onclick="importSearch()" id="importBtn" style="display:none">&#x2193; Import All Results</button>
+    <div id="importSection-arxiv" class="import-section">
+      <div class="card">
+        <div class="card-header">arXiv ID or URL</div>
+        <div class="btn-group" style="margin-bottom:8px">
+          <input id="arxivInput" placeholder="e.g. 1706.03762 or https://arxiv.org/abs/..." onkeydown="if(event.key==='Enter')addPaper()">
+        </div>
+        <button class="btn" onclick="addPaper()">&#x271A; Add Paper</button>
       </div>
     </div>
-    <div id="searchResults" style="display:flex;flex-direction:column;gap:8px;min-height:0"></div>
+    <div id="importSection-web" class="import-section" style="display:none">
+      <div class="card">
+        <div class="card-header">Add New URL</div>
+        <div class="btn-group" style="margin-bottom:8px">
+          <input id="webUrlInput" placeholder="https://example.com/blog/..." onkeydown="if(event.key==='Enter')ingestWeb()">
+        </div>
+        <button class="btn" onclick="ingestWeb()">&#x1F310; Ingest Web Link</button>
+      </div>
+      <div id="webResult"></div>
+      <div class="card" style="flex:1;overflow-y:auto">
+        <div class="card-header">Ingested Articles</div>
+        <div id="webList"></div>
+      </div>
+    </div>
+    <div id="importSection-search" class="import-section" style="display:none">
+      <div class="card">
+        <div class="card-header">Search Query</div>
+        <div class="btn-group" style="margin-bottom:8px">
+          <input id="searchInput" placeholder="e.g. transformer attention mechanism" onkeydown="if(event.key==='Enter')searchArxiv()">
+        </div>
+        <div class="btn-group">
+          <button class="btn" onclick="searchArxiv()">&#x2315; Search</button>
+          <button class="btn btn-success" onclick="importSearch()" id="importBtn" style="display:none">&#x2193; Import All Results</button>
+        </div>
+      </div>
+      <div id="searchResults" style="display:flex;flex-direction:column;gap:8px;min-height:0"></div>
+    </div>
   </div>
 </div>
 
@@ -605,6 +598,17 @@ function toggleTheme(){
 })();
 
 // ── Panel Switching ──
+function switchImportTab(sub, el){
+  document.querySelectorAll('.import-tab').forEach(t=>{t.style.borderBottomColor='transparent';t.style.color='var(--text3)';t.style.fontWeight='400'});
+  document.querySelectorAll('.import-section').forEach(s=>s.style.display='none');
+  if(el){el.style.borderBottomColor='var(--accent)';el.style.color='var(--accent)';el.style.fontWeight='500'}
+  const section=document.getElementById('importSection-'+sub);
+  if(section)section.style.display='block';
+  if(sub==='web'){document.getElementById('webUrlInput').focus();loadWebList();}
+  if(sub==='search')document.getElementById('searchInput').focus();
+  if(sub==='arxiv')document.getElementById('arxivInput').focus();
+}
+
 function switchPanel(name){
   document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
@@ -613,7 +617,7 @@ function switchPanel(name){
   if(name==='graph'&&gData.nodes)setTimeout(()=>renderGraph(gData),50);
   if(name==='browse')loadBrowse();
   if(name==='pool')loadPoolPanel();
-  if(name==='web'){document.getElementById('webUrlInput').focus();loadWebList();}
+  if(name==='import'){document.getElementById('webUrlInput').focus();loadWebList();}
   if(name==='about')loadAbout();
 }
 
@@ -1580,6 +1584,7 @@ window.addEventListener('resize',()=>{
 });
 
 // ── Init ──
+switchPanel('graph');
 loadGpuStatus();
 loadHeaderStats();
 loadGraph();
