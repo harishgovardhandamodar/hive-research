@@ -840,7 +840,7 @@ function toggleTheme(){
   el('themeToggle').textContent=isLight?'\u2600':'\u263E';
   // Update graph edge colors for theme
   GS.edgeColor=isLight?'#3b82f6':'#60a5fa';
-  if(gData&&gData.nodes)renderGraph(gData);
+  if(gData&&gData.nodes&&gData.nodes.length)renderGraph(gData);
 }
 (function(){
   const saved=localStorage.getItem('hive_theme');
@@ -864,7 +864,7 @@ function switchPanel(name){
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   el('panel-'+name).classList.add('active');
   document.querySelector('.nav-item[data-panel="'+name+'"]').classList.add('active');
-  if(name==='graph'&&gData.nodes)setTimeout(()=>renderGraph(gData),50);
+  if(name==='graph'&&gData.nodes&&gData.nodes.length)setTimeout(()=>renderGraph(gData),50);
   if(name==='browse')loadBrowse();
   if(name==='pool')loadPoolPanel();
   if(name==='import'){document.getElementById('webUrlInput').focus();loadWebList();}
@@ -952,7 +952,7 @@ function applyGraphStyle(){
   document.getElementById('gcPaperSizeV').textContent=GS.paperSize;
   document.getElementById('gcConceptSizeV').textContent=GS.conceptSize;
   saveGraphStyle();
-  if(gData.nodes)renderGraph(gData);
+  if(gData.nodes&&gData.nodes.length)renderGraph(gData);
 }
 function resetGraphStyle(){
   const isLight=document.body.classList.contains('light');
@@ -964,7 +964,7 @@ function resetGraphStyle(){
   set('gcPaperSize',GS.paperSize);set('gcConceptSize',GS.conceptSize);
   document.getElementById('gcPaperSizeV').textContent=GS.paperSize;
   document.getElementById('gcConceptSizeV').textContent=GS.conceptSize;
-  if(gData.nodes)renderGraph(gData);
+  if(gData.nodes&&gData.nodes.length)renderGraph(gData);
 }
 
 // ── Knowledge Graph (D3) ──
@@ -2262,15 +2262,19 @@ async function refreshAll(){
 async function loadGraph(){
   try{
     gData=await api('/api/graph');
-    if(el('panel-graph').classList.contains('active'))
-      setTimeout(()=>renderGraph(gData),100);
+    if(el('panel-graph').classList.contains('active')&&gData.nodes&&gData.nodes.length){
+      setTimeout(()=>renderGraph(gData),50);
+    }else{
+      // Fallback: retry once after data arrives
+      setTimeout(()=>{if(el('panel-graph').classList.contains('active')&&gData.nodes&&gData.nodes.length)renderGraph(gData)},500);
+    }
   }catch(_){}
 }
 
 let _resizeTimer;
 window.addEventListener('resize',()=>{
   clearTimeout(_resizeTimer);
-  _resizeTimer=setTimeout(()=>{if(el('panel-graph').classList.contains('active')&&gData.nodes)renderGraph(gData)},300);
+  _resizeTimer=setTimeout(()=>{if(el('panel-graph').classList.contains('active')&&gData.nodes&&gData.nodes.length)renderGraph(gData)},300);
 });
 
 // ── Init ──
@@ -2292,9 +2296,6 @@ loadHeaderStats();
 loadGraph();
 loadPoolList();
 fetchLogs();
-// Force re-render after layout settles
-setTimeout(()=>{if(el('panel-graph').classList.contains('active')&&gData.nodes)renderGraph(gData)},500);
-setTimeout(()=>{if(el('panel-graph').classList.contains('active')&&gData.nodes)renderGraph(gData)},1500);
 </script>
 </body>
 </html>
