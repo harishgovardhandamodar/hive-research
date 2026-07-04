@@ -373,17 +373,21 @@ textarea{resize:vertical;min-height:60px;font-family:inherit}
     <div id="browseLeft" style="width:25%;min-width:220px;border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;flex-shrink:0;transition:width .2s,min-width .2s">
       <div style="padding:8px 10px;border-bottom:1px solid var(--border);flex-shrink:0;display:flex;gap:6px;align-items:center">
         <input id="browseSearch" placeholder="Search by title, author..." oninput="searchPapers()" style="flex:1;padding:6px 8px;font-size:12px">
-        <span id="browseToggleBtn" onclick="toggleBrowseList()" style="cursor:pointer;font-size:13px;color:var(--text3);padding:2px 4px;border-radius:3px;flex-shrink:0;transition:color .15s" title="Toggle paper list">&#x2630;</span>
       </div>
       <div id="browsePapers" style="flex:1;overflow-y:auto;padding:2px 0"></div>
     </div>
+    <!-- Toggle button (always visible) -->
+    <div id="browseToggleCol" onclick="toggleBrowseList()" style="width:14px;min-width:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;background:var(--surface);border-right:1px solid var(--border);flex-shrink:0;font-size:9px;color:var(--text3);user-select:none;transition:background .15s" title="Toggle paper list">&#x25C0;</div>
     <!-- Right: paper detail + file groups + preview (3/4) -->
     <div id="browseRight" style="flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0">
       <div id="browsePaperDetail" style="display:none;flex-direction:column;flex:1;overflow:hidden">
-        <div id="browsePaperHeader" style="padding:10px 14px;border-bottom:1px solid var(--border);flex-shrink:0"></div>
-        <div id="browseFileGroups" style="padding:6px 14px;overflow-y:auto;flex-shrink:0;max-height:180px"></div>
-        <div id="browseLineage" style="display:none;padding:6px 14px;border-top:1px solid var(--border);flex-shrink:0;max-height:120px;overflow-y:auto;font-size:11px;background:var(--surface)"></div>
-        <div id="browsePreviewToolbar" style="display:none;padding:4px 14px;border-top:1px solid var(--border);flex-shrink:0;gap:6px;align-items:center">
+        <div id="browsePaperHeader" style="padding:10px 14px;border-bottom:1px solid var(--border);flex-shrink:0">
+          <span id="browseCollapseTopBtn" onclick="toggleBrowseTop()" style="float:right;cursor:pointer;font-size:10px;color:var(--text3);padding:2px 6px;border-radius:3px;margin-top:2px" title="Collapse top panel">&#x25B2;</span>
+        </div>
+        <div id="browseTopPanel" style="overflow:hidden;transition:max-height .25s ease">
+          <div id="browseFileGroups" style="padding:6px 14px;overflow-y:auto;flex-shrink:0;max-height:180px"></div>
+          <div id="browseLineage" style="display:none;padding:6px 14px;border-top:1px solid var(--border);flex-shrink:0;max-height:120px;overflow-y:auto;font-size:11px;background:var(--surface)"></div>
+          <div id="browsePreviewToolbar" style="display:none;padding:4px 14px;border-top:1px solid var(--border);flex-shrink:0;gap:6px;align-items:center">
           <span id="browsePreviewPath" style="font-size:10px;color:var(--text3);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span>
           <select id="modelSelector" style="font-size:10px;padding:2px 6px;border-radius:4px;border:1px solid var(--border);background:var(--surface);color:var(--text);width:140px" onchange="saveModelPref()">
             <option value="">Default (fast)</option>
@@ -392,6 +396,7 @@ textarea{resize:vertical;min-height:60px;font-family:inherit}
           </select>
           <button class="btn btn-sm btn-outline" onclick="recreateCurrentNotes()" title="Regenerate vault notes for this paper">&#x21BB; Recreate Notes</button>
         </div>
+        </div><!-- /browseTopPanel -->
         <div id="browsePaperPreview" style="flex:1;overflow-y:auto;padding:10px 14px;border-top:1px solid var(--border)" class="markdown-body"></div>
       </div>
       <div id="browseRightEmpty" style="flex:1;display:flex;align-items:center;justify-content:center;color:var(--text3);font-size:13px;flex-direction:column;gap:8px">
@@ -1285,19 +1290,41 @@ async function openPaperFile(reqPath, ext){
 
 function toggleBrowseList(){
   const el_=el('browseLeft');
+  const btn=el('browseToggleCol');
   const collapsed=el_.dataset.collapsed==='true';
   if(collapsed){
     el_.style.width='25%';el_.style.minWidth='220px';
     el_.dataset.collapsed='false';
-    el('browseToggleBtn').innerHTML='&#x2630;';
-    el('browseToggleBtn').title='Collapse paper list';
+    btn.innerHTML='&#x25C0;';
+    btn.title='Collapse paper list';
     localStorage.setItem('hive_browse_collapsed','0');
   }else{
     el_.style.width='0';el_.style.minWidth='0';
     el_.dataset.collapsed='true';
-    el('browseToggleBtn').innerHTML='&#x25B6;';
-    el('browseToggleBtn').title='Show paper list';
+    btn.innerHTML='&#x25B6;';
+    btn.title='Show paper list';
     localStorage.setItem('hive_browse_collapsed','1');
+  }
+}
+function toggleBrowseTop(){
+  const panel=el('browseTopPanel');
+  const btn=el('browseCollapseTopBtn');
+  const collapsed=panel.dataset.collapsed==='true';
+  if(collapsed){
+    panel.style.maxHeight=panel.scrollHeight+'px';
+    panel.dataset.collapsed='false';
+    btn.innerHTML='&#x25B2;';
+    btn.title='Collapse top panel';
+    localStorage.setItem('hive_browse_top_collapsed','0');
+    // Allow dynamic resizing by removing max-height after transition
+    setTimeout(()=>{if(panel.dataset.collapsed!=='true')panel.style.maxHeight='none'},280);
+  }else{
+    panel.dataset.full=panel.scrollHeight;
+    panel.style.maxHeight='0';
+    panel.dataset.collapsed='true';
+    btn.innerHTML='&#x25BC;';
+    btn.title='Expand top panel';
+    localStorage.setItem('hive_browse_top_collapsed','1');
   }
 }
 
@@ -1739,7 +1766,9 @@ window.addEventListener('resize',()=>{
 // Restore preferences
 (function(){
   const bc=localStorage.getItem('hive_browse_collapsed');
-  if(bc==='1'){const el_=el('browseLeft');if(el_){el_.style.width='0';el_.style.minWidth='0';el_.dataset.collapsed='true';el('browseToggleBtn').innerHTML='&#x25B6;';el('browseToggleBtn').title='Show paper list'}}
+  if(bc==='1'){const el_=el('browseLeft');const btn=el('browseToggleCol');if(el_){el_.style.width='0';el_.style.minWidth='0';el_.dataset.collapsed='true';if(btn){btn.innerHTML='&#x25B6;';btn.title='Show paper list'}}}
+  const tc=localStorage.getItem('hive_browse_top_collapsed');
+  if(tc==='1'){const panel=el('browseTopPanel');const btn=el('browseCollapseTopBtn');if(panel){panel.dataset.full=panel.scrollHeight;panel.style.maxHeight='0';panel.dataset.collapsed='true';if(btn){btn.innerHTML='&#x25BC;';btn.title='Expand top panel'}}}
 })();
 (function(){
   // Restore model preference
