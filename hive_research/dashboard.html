@@ -276,8 +276,11 @@ select{cursor:pointer}
 #poolGraphWrap svg{width:100%;height:100%;display:block}
 
 /* ── Bottom Log Bar ── */
-.log-bar{background:var(--glass-bg);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-top:1px solid var(--border);flex-shrink:0;display:flex;flex-direction:column;max-height:40vh;transition:max-height .3s cubic-bezier(.4,0,.2,1)}
-.log-bar.collapsed{max-height:32px}
+.log-bar{background:var(--glass-bg);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-top:1px solid var(--border);flex-shrink:0;display:flex;flex-direction:column;max-height:40vh;position:relative;transition:max-height .3s cubic-bezier(.4,0,.2,1)}
+.log-bar.dragging{transition:none!important;user-select:none}
+.log-bar.collapsed{max-height:32px!important}
+.log-bar-resizer{position:absolute;top:-4px;left:0;right:0;height:8px;cursor:row-resize;z-index:20;background:transparent}
+.log-bar-resizer:hover,.log-bar-resizer:active{background:rgba(96,165,250,.3)}
 .log-bar-header{display:flex;align-items:center;justify-content:space-between;padding:5px 16px;cursor:pointer;user-select:none;font-size:11px;color:var(--text3);border-bottom:1px solid var(--border);flex-shrink:0;transition:background .15s}
 .log-bar-header:hover{background:var(--surface2)}
 .log-bar-header .ll{display:flex;align-items:center;gap:8px}
@@ -679,6 +682,7 @@ select{cursor:pointer}
 
 <!-- ── Persistent Bottom Log Bar ── -->
 <div class="log-bar" id="logBar">
+  <div class="log-bar-resizer" id="logResizer" title="Drag to resize"></div>
   <div class="log-bar-header">
     <div class="ll" onclick="toggleLogBar()" style="cursor:pointer">&#x2630; Activity Log <span class="count" id="logCount">0</span></div>
     <div style="display:flex;gap:8px;align-items:center;font-size:10px;cursor:default" onclick="event.stopPropagation()">
@@ -776,11 +780,56 @@ async function fetchLogs(){
     c.scrollTop=c.scrollHeight;
   }catch(_){}
 }
+let _logHeight=parseInt(localStorage.getItem('hive_log_height'))||Math.round(window.innerHeight*0.4);
+
 function toggleLogBar(){
   _logCollapsed=!_logCollapsed;
   el('logBar').classList.toggle('collapsed',_logCollapsed);
   el('logToggle').textContent=_logCollapsed?'\u25BC':'\u25B2';
+  if(!_logCollapsed)el('logBar').style.maxHeight=_logHeight+'px';
 }
+
+(function(){
+  const bar=el('logBar');
+  const resizer=el('logResizer');
+  let startY=0,startH=0;
+  function onStart(e){
+    _logCollapsed=false;
+    bar.classList.remove('collapsed');
+    bar.classList.add('dragging');
+    el('logToggle').textContent='\u25B2';
+    startY=e.clientY||e.touches[0].clientY;
+    startH=bar.offsetHeight;
+    document.addEventListener('mousemove',onMove);
+    document.addEventListener('mouseup',onEnd);
+    document.addEventListener('touchmove',onMove,{passive:false});
+    document.addEventListener('touchend',onEnd);
+    e.preventDefault();
+  }
+  function onMove(e){
+    const clientY=e.clientY||(e.touches&&e.touches[0].clientY)||0;
+    const dh=startY-clientY;
+    const vh=window.innerHeight;
+    const newH=Math.max(32,Math.min(Math.round(vh*0.85),startH+dh));
+    bar.style.maxHeight=newH+'px';
+    bar.style.transition='none';
+  }
+  function onEnd(){
+    bar.classList.remove('dragging');
+    bar.style.transition='';
+    _logHeight=bar.offsetHeight;
+    localStorage.setItem('hive_log_height',String(_logHeight));
+    document.removeEventListener('mousemove',onMove);
+    document.removeEventListener('mouseup',onEnd);
+    document.removeEventListener('touchmove',onMove);
+    document.removeEventListener('touchend',onEnd);
+  }
+  resizer.addEventListener('mousedown',onStart);
+  resizer.addEventListener('touchstart',onStart,{passive:false});
+  // Restore saved height
+  const saved=localStorage.getItem('hive_log_height');
+  if(saved){const h=parseInt(saved);if(h>32&&h<window.innerHeight*0.85){_logHeight=h;bar.style.maxHeight=h+'px'}}
+})();
 setInterval(fetchLogs,2000);
 
 // ── Theme Toggle ──
