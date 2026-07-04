@@ -1153,10 +1153,10 @@ function showNodePreview(d){
       const urlLine=lines.find(l=>l.startsWith('URL:'));
       if(urlLine){const url=urlLine.replace('URL:','').trim();actions+='<a href="'+url+'" target="_blank" class="btn btn-sm btn-outline">Open</a>'}
       const imgLine=lines.find(l=>l.startsWith('Images:'));
-      if(imgLine)more+='<div style="margin-top:4px"><b>Images:</b><br>'+imgLine.replace('Images:','').split(';').map(u=>u.trim()).filter(u=>u).map(u=>'<a href="'+u+'" target="_blank" style="color:var(--accent);display:block;font-size:10px">'+u.substring(0,60)+'</a>').join('')+'</div>';
+      if(imgLine){const urls=imgLine.replace('Images:','').split(';').map(u=>u.trim()).filter(u=>u);more+='<div style="margin-top:6px"><b>&#x1F5BC; Images</b><br>';urls.forEach(u=>{more+='<img src="'+esc(u)+'" style="max-width:100%;max-height:200px;border-radius:6px;margin:4px 0;display:block" onerror="this.style.display=\'none\'">'});more+='</div>'}
     }
     // Parse extra JSON data (notes, experiment, results) from definition
-    if(d.type!=='web'&&d.definition){
+    if(d.definition){
       try{
         const extra=JSON.parse(d.definition);
         if(extra.notes)more+='<div style="margin-top:6px"><b>Notes:</b><br><span style="color:var(--text2)">'+esc(extra.notes.substring(0,400))+'</span></div>';

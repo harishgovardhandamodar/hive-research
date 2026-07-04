@@ -25,7 +25,7 @@ class Organizer:
         self.pipeline = PaperPipeline(config, self.llm, self.kg)
         self.rag = RAGEngine(config, self.llm, self.kg)
         self.pool = ResearchPool(config.root_dir / "pool")
-        self.web = WebIngester(self.llm, self.kg)
+        self.web = WebIngester(config, self.llm, self.kg)
         self.vectors = PaperVectorStore(config, self.llm, self.kg)
 
     def add_by_id(self, arxiv_id: str, with_lineage: bool = False) -> dict[str, Any]:
