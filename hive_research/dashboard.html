@@ -377,6 +377,7 @@ textarea{resize:vertical;min-height:60px;font-family:inherit}
       <div id="browsePaperDetail" style="display:none;flex-direction:column;flex:1;overflow:hidden">
         <div id="browsePaperHeader" style="padding:10px 14px;border-bottom:1px solid var(--border);flex-shrink:0"></div>
         <div id="browseFileGroups" style="padding:6px 14px;overflow-y:auto;flex-shrink:0;max-height:180px"></div>
+        <div id="browseLineage" style="display:none;padding:6px 14px;border-top:1px solid var(--border);flex-shrink:0;max-height:120px;overflow-y:auto;font-size:11px;background:var(--surface)"></div>
         <div id="browsePreviewToolbar" style="display:none;padding:4px 14px;border-top:1px solid var(--border);flex-shrink:0;gap:6px;align-items:center">
           <span id="browsePreviewPath" style="font-size:10px;color:var(--text3);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span>
           <button class="btn btn-sm btn-outline" onclick="recreateCurrentNotes()" title="Regenerate vault notes for this paper">&#x21BB; Recreate Notes</button>
@@ -1074,6 +1075,36 @@ async function recreateCurrentNotes(){
   },8000);
 }
 
+function renderLineage(paperId){
+  const el_=el('browseLineage');
+  if(!gData||!gData.links){el_.style.display='none';el_.innerHTML='';return}
+  // Find cites edges where this paper is source (prior work it cites) or target (cited by others)
+  const prior=[]; const citedBy=[];
+  gData.links.forEach(l=>{
+    if(l.relation!=='cites')return;
+    if(l.source===paperId){
+      const n=gData.nodes.find(x=>x.id===l.target);
+      if(n)prior.push({id:l.target,label:n.label||n.title||l.target});
+    }
+    if(l.target===paperId){
+      const n=gData.nodes.find(x=>x.id===l.source);
+      if(n)citedBy.push({id:l.source,label:n.label||n.title||l.source});
+    }
+  });
+  if(!prior.length&&!citedBy.length){el_.style.display='none';el_.innerHTML='';return}
+  const parts=[];
+  if(prior.length){
+    const items=prior.slice(0,8).map(r=>'<a href="#" onclick="event.preventDefault();selectPaper(\''+esc(r.id)+'\')" style="color:var(--accent);text-decoration:none">'+esc(r.label.substring(0,45))+'</a>').join(', ');
+    parts.push('<span style="color:var(--text3);font-weight:600">&#x2190; Prior:</span> '+items+(prior.length>8?' <span style="color:var(--text3)">+'+ (prior.length-8)+' more</span>':''));
+  }
+  if(citedBy.length){
+    const items=citedBy.slice(0,8).map(r=>'<a href="#" onclick="event.preventDefault();selectPaper(\''+esc(r.id)+'\')" style="color:var(--cyan);text-decoration:none">'+esc(r.label.substring(0,45))+'</a>').join(', ');
+    parts.push('<span style="color:var(--text3);font-weight:600">&#x2192; Cited by:</span> '+items+(citedBy.length>8?' <span style="color:var(--text3)">+'+ (citedBy.length-8)+' more</span>':''));
+  }
+  el_.innerHTML=parts.join(' &nbsp;&middot;&nbsp; ');
+  el_.style.display='block';
+}
+
 function selectPaper(paperId){
   const p=_browsePapers.find(x=>x.id===paperId);
   if(!p)return;
@@ -1097,6 +1128,8 @@ function selectPaper(paperId){
   el('browsePaperPreview').innerHTML='<div style="color:var(--text3);font-size:11px;padding:10px;text-align:center">Click a file below to preview</div>';
   el('browsePreviewToolbar').style.display='none';
   _currentPreviewFile=null;
+  // render lineage from graph data
+  renderLineage(paperId);
 }
 
 function renderPaperFiles(p){
