@@ -629,8 +629,10 @@ select{cursor:pointer}
         <option value="abstract">Abstract Jaccard</option>
         <option value="author">Author Overlap</option>
         <option value="concept">Concept Overlap</option>
+        <option value="vector">Vector (semantic)</option>
       </select>
       <button class="btn" onclick="loadSimilarity()">&#x2248; Compute</button>
+      <button class="btn btn-sm btn-outline" onclick="computeVectors()" id="simVecBtn" style="font-size:11px">&#x1F4A1; Compute Vectors</button>
       <button class="btn btn-sm btn-outline" onclick="_simSelected=[];_simPaperIds=[];renderSimSelected();el('simResults').innerHTML=''" style="font-size:11px">&#x2716; Clear</button>
       <div style="display:none;gap:4px;margin-left:auto" id="simViewToggle">
         <button class="btn btn-sm" onclick="switchSimView('list',this)" style="background:var(--accent);color:white">&#x2630; List</button>
@@ -1742,6 +1744,17 @@ function switchSimView(view,btn){
   else renderSimMatrix();
 }
 
+async function computeVectors(){
+  const btn=el('simVecBtn');
+  btn.disabled=true;btn.textContent='\u23F3 Computing...';
+  addLog('Computing paper vectors...','INPROGRESS');
+  try{
+    const r=await api('/api/vectors/compute','POST');
+    addLog('Computed '+r.computed+'/'+r.total+' paper vectors','DONE');
+  }catch(e){addLog('Vector computation error: '+e,'ERROR')}
+  btn.disabled=false;btn.textContent='\uD83D\uDCA1 Compute Vectors';
+}
+
 async function loadSimilarity(){
   addLog('Computing similarity...','INPROGRESS');
   try{
@@ -1764,6 +1777,26 @@ async function loadSimilarity(){
     _simPaperCache=await api('/api/papers');
   }catch(_){}
 })();
+// Check vector status
+async function checkVecStatus(){
+  try{
+    const s=await api('/api/vectors/status');
+    const btn=el('simVecBtn');
+    if(s.ready){
+      btn.textContent='\u2705 Vectors ('+s.count+')';btn.style.borderColor='var(--green)';btn.style.color='var(--green)';
+    }else{
+      btn.textContent='\uD83D\uDCA1 Compute Vectors';btn.style.borderColor='';btn.style.color='';
+    }
+  }catch(_){}
+}
+// Check on init and when similarity panel opens
+checkVecStatus();
+// Also check when panel is switched to similarity (patched into switchPanel)
+const _origSwitch=window.switchPanel;
+window.switchPanel=function(name){
+  _origSwitch(name);
+  if(name==='similarity')checkVecStatus();
+};
 
 // ── RAG Chat ──
 async function askRag(){

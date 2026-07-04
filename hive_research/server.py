@@ -79,6 +79,8 @@ class RouteHandler(BaseHTTPRequestHandler):
             if isinstance(paper_ids, str):
                 paper_ids = [x.strip() for x in paper_ids.split(",") if x.strip()]
             _json_response(self, self.org.similarity(paper_ids=paper_ids, algorithm=algorithm))
+        elif path == "/api/vectors/status":
+            _json_response(self, self.org.vectors.status())
         elif path == "/api/papers":
             from .pipeline import _sanitize_id
             has_lineage = set()
@@ -457,6 +459,10 @@ info.textContent += ' | OK';
             if isinstance(paper_ids, str):
                 paper_ids = [x.strip() for x in paper_ids.split(",") if x.strip()]
             _json_response(self, self.org.similarity(paper_ids=paper_ids, algorithm=algorithm))
+        elif path == "/api/vectors/compute":
+            _json_response(self, self.org.compute_vectors())
+        elif path == "/api/vectors/status":
+            _json_response(self, self.org.vectors.status())
         elif path == "/api/refresh":
             model = data.get("model", params.get("model", None))
             result = self.org.refresh_papers(model=model)

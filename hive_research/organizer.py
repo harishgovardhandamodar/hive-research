@@ -7,6 +7,7 @@ from .arxiv_fetcher import PaperInfo, download_pdf, fetch_by_id, fetch_by_id_wit
 from .config import Config
 from .graph import KnowledgeGraph
 from .llm import LLMInterface
+from .paper_vectors import PaperVectorStore
 from .pipeline import PaperPipeline
 from .pool import ResearchPool
 from .rag import RAGEngine
@@ -25,6 +26,7 @@ class Organizer:
         self.rag = RAGEngine(config, self.llm, self.kg)
         self.pool = ResearchPool(config.root_dir / "pool")
         self.web = WebIngester(self.llm, self.kg)
+        self.vectors = PaperVectorStore(config, self.llm, self.kg)
 
     def add_by_id(self, arxiv_id: str, with_lineage: bool = False) -> dict[str, Any]:
         result = fetch_by_id_with_meta(arxiv_id)
@@ -81,8 +83,12 @@ class Organizer:
     def query_rag(self, question: str) -> dict[str, Any]:
         return self.rag.answer(question)
 
+    def compute_vectors(self) -> dict[str, Any]:
+        count = self.vectors.compute_all()
+        return {"status": "ok", "computed": count, "total": len(self.kg.papers)}
+
     def similarity(self, paper_ids: list[str] | None = None, algorithm: str = "combined") -> list[dict[str, Any]]:
-        return paper_similarity_matrix(self.kg, paper_ids=paper_ids, algorithm=algorithm)
+        return paper_similarity_matrix(self.kg, paper_ids=paper_ids, algorithm=algorithm, vector_store=self.vectors)
 
     def stats(self) -> dict[str, Any]:
         return {

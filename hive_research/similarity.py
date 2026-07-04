@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from .graph import KnowledgeGraph
+from .paper_vectors import PaperVectorStore
 
 
 def jaccard_tokens(a: str, b: str) -> float:
@@ -48,7 +49,7 @@ ALGORITHMS: dict[str, dict[str, Any]] = {
     "combined": {
         "label": "Combined (default)",
         "desc": "Authors + Abstract + Edges",
-        "fn": lambda kg, p1, p2, pid1, pid2: (
+        "fn": lambda kg, p1, p2, pid1, pid2, vs=None: (
             0.4 * _author_score(p1, p2)
             + 0.4 * _abstract_score(p1, p2)
             + 0.2 * _edge_score(kg, pid1, pid2)
@@ -57,17 +58,22 @@ ALGORITHMS: dict[str, dict[str, Any]] = {
     "abstract": {
         "label": "Abstract Jaccard",
         "desc": "Abstract token overlap",
-        "fn": lambda kg, p1, p2, pid1, pid2: _abstract_score(p1, p2),
+        "fn": lambda kg, p1, p2, pid1, pid2, vs=None: _abstract_score(p1, p2),
     },
     "author": {
         "label": "Author Overlap",
         "desc": "Shared authors",
-        "fn": lambda kg, p1, p2, pid1, pid2: _author_score(p1, p2),
+        "fn": lambda kg, p1, p2, pid1, pid2, vs=None: _author_score(p1, p2),
     },
     "concept": {
         "label": "Concept Overlap",
         "desc": "Shared graph concepts",
-        "fn": lambda kg, p1, p2, pid1, pid2: _concept_score(kg, pid1, pid2),
+        "fn": lambda kg, p1, p2, pid1, pid2, vs=None: _concept_score(kg, pid1, pid2),
+    },
+    "vector": {
+        "label": "Vector (semantic)",
+        "desc": "Semantic embedding similarity",
+        "fn": lambda kg, p1, p2, pid1, pid2, vs=None: vs.cosine(pid1, pid2) if vs is not None and vs.ready else 0.0,
     },
 }
 
@@ -76,6 +82,7 @@ def paper_similarity_matrix(
     kg: KnowledgeGraph,
     paper_ids: list[str] | None = None,
     algorithm: str = "combined",
+    vector_store: PaperVectorStore | None = None,
 ) -> list[dict[str, Any]]:
     algo = ALGORITHMS.get(algorithm, ALGORITHMS["combined"])
     papers = kg.papers
@@ -84,7 +91,7 @@ def paper_similarity_matrix(
     results = []
     for i, p1 in enumerate(papers):
         for p2 in papers[i + 1:]:
-            score = algo["fn"](kg, p1, p2, p1.id, p2.id)
+            score = algo["fn"](kg=kg, p1=p1, p2=p2, pid1=p1.id, pid2=p2.id, vs=vector_store)
             results.append({
                 "source": p1.id,
                 "source_title": p1.label,
