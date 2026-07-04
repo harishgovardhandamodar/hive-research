@@ -52,6 +52,8 @@ body{font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-s
 ::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}
 ::-webkit-scrollbar-thumb:hover{background:var(--text3)}
 ::selection{background:rgba(96,165,250,.3);color:var(--text)}
+body{-webkit-overflow-scrolling:touch}
+#browsePapers,#browsePaperPreview,.chat-msgs,.log-bar-content{-webkit-overflow-scrolling:touch}
 input,textarea,select{font-family:inherit;font-size:inherit}
 
 /* ── Layout ── */
@@ -277,6 +279,128 @@ select{cursor:pointer}
 .log-bar-content .l.DONE{color:var(--green)}
 .log-bar-content .l.INPROGRESS{color:var(--accent);animation:pulse 1.5s ease-in-out infinite}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+
+/* ── iPad / Tablet Responsive ── */
+@media (min-width: 768px) and (max-width: 1366px) {
+  :root {
+    --header-h: 52px;
+    --sidebar-w: 56px;
+    font-size: 14px;
+  }
+  body{font-size:14px}
+  input,textarea,select{font-size:14px;padding:11px 14px}
+  .btn{padding:10px 20px;font-size:13px}
+  .btn-sm{padding:7px 14px;font-size:12px}
+  .header{padding:0 24px}
+  .header .stats .s{padding:5px 14px}
+  .header .stats .s strong{font-size:13px}
+  .sidebar{padding:12px 0;gap:4px}
+  .sidebar .nav-item{width:44px;height:44px;font-size:19px;border-radius:12px}
+  .sidebar .nav-item .tip{left:62px;padding:6px 14px;font-size:12px}
+  .sidebar .nav-item:hover .tip{left:66px}
+  .panel-header{padding:14px 24px 12px}
+  .panel-header h2{font-size:15px}
+  .panel-body{padding:18px 24px;gap:14px}
+  .card{padding:16px}
+  .stat-card .num{font-size:34px}
+  #graphWrap{min-height:400px}
+  #graphFilter{width:220px;font-size:13px;padding:10px 14px;top:12px;right:12px}
+  #graphLegend{padding:8px 16px;font-size:11px;gap:16px;bottom:14px;left:14px}
+  #nodePreview{width:400px;padding:18px;font-size:13px;top:14px;right:14px}
+  #tooltip{font-size:12px;padding:10px 14px;max-width:360px}
+  .browse-paper{padding:10px 12px}
+  .browse-paper .bp-title{font-size:13px}
+  .browse-paper .bp-meta{font-size:11px}
+  .browse-paper .bp-refresh{font-size:15px;padding:4px 8px}
+  .browse-paper .bp-badge{font-size:10px;right:10px;top:10px}
+  .fg-header{padding:6px 10px;font-size:12px}
+  .fg-file{padding:6px 10px;font-size:12px}
+  .fg-file .fg-ext{font-size:10px}
+  .bfile{padding:5px 8px}
+  .pool-card{padding:14px}
+  .pool-card .ptitle{font-size:13px}
+  .pool-card .pmeta{font-size:12px}
+  .pool-card .pabs{font-size:12px}
+  .pool-card .pactions a,.pool-card .pactions .act{padding:5px 10px;font-size:12px}
+  .pool-subtab{padding:6px 14px;font-size:12px}
+  .pool-toolbar .stat{padding:5px 12px;font-size:12px}
+  .pool-toolbar .stat strong{font-size:13px}
+  .concept-tag{padding:3px 10px;font-size:12px;margin:3px}
+  .concept-ticker{height:30px}
+  .chat-msg{font-size:13px;padding:12px 16px}
+  .chat-input{padding:12px 0 0}
+  .result-card{padding:14px}
+  .result-card h4{font-size:14px}
+  .result-card .meta{font-size:12px}
+  .result-card .abs{font-size:12px}
+  .sim-table th,.sim-table td{padding:8px 14px;font-size:12px}
+  .sim-table th{font-size:11px}
+  .tab{padding:10px 20px;font-size:13px}
+  .paper-row{padding:10px 0}
+  .paper-row .info h4{font-size:13px}
+  .web-list-item{padding:10px 0}
+  .web-list-item .wli-info h4{font-size:13px}
+  .log-bar-header{padding:6px 18px;font-size:12px}
+  .log-bar-content{padding:8px 18px;font-size:11px}
+  #browseLeft{min-width:280px}
+  #browseSearch{font-size:13px;padding:8px 10px}
+  #browseToggleCol{width:18px;min-width:18px}
+  #browsePreviewToolbar{padding:6px 14px}
+  #browsePreviewToolbar select{font-size:11px;padding:4px 8px}
+  #browsePaperHeader{padding:12px 16px}
+  #browsePaperHeader .bp-title{font-size:14px}
+  #browseFileGroups{padding:8px 16px;max-height:200px}
+  #browseLineage{padding:8px 16px;max-height:140px;font-size:12px}
+}
+
+/* iPad Air 11 (820×1180) portrait specific */
+@media (min-width: 800px) and (max-width: 900px) and (orientation: portrait) {
+  .header .stats{gap:6px}
+  .header .stats .s{padding:4px 10px;font-size:10px}
+  .header .stats .s .dot{width:5px;height:5px}
+  #gpuStatus{font-size:9px;padding:2px 8px}
+}
+
+/* iPad landscape and desktop < 1200px */
+@media (min-width: 1024px) and (max-width: 1199px) {
+  #browseLeft{min-width:240px;width:28%}
+  #nodePreview{width:340px}
+}
+
+/* High DPI / Retina adjustments */
+@media (-webkit-min-device-pixel-ratio: 2) {
+  .sidebar .nav-item.active{box-shadow:inset 0 0 0 0.5px rgba(96,165,250,.3)}
+  .header .stats .s{border-width:0.5px}
+}
+
+/* Touch device hover fix — prevent sticky hover on touch */
+@media (hover: none) and (pointer: coarse) {
+  .sidebar .nav-item:hover{background:transparent;transform:none}
+  .sidebar .nav-item.active{background:rgba(96,165,250,.12)}
+  .browse-paper:hover{background:transparent}
+  .browse-paper.active{background:rgba(96,165,250,.08)}
+  .pool-card:hover{transform:none;box-shadow:none;border-color:var(--border)}
+  .result-card:hover{transform:none;box-shadow:none}
+  .stat-card:hover{transform:none}
+  .btn:hover{transform:none;box-shadow:0 2px 8px rgba(96,165,250,.2)}
+  .btn-outline:hover{background:transparent}
+  .fg-header:hover{background:transparent}
+  .fg-file:hover{background:transparent;color:var(--text2)}
+  .bfile:hover{background:transparent}
+  .web-list-item:hover{background:transparent}
+  .log-bar-header:hover{background:transparent}
+  .card:hover{border-color:var(--border)}
+  .pool-card .pactions a:hover,.pool-card .pactions .act:hover{background:transparent}
+  .concept-tag:hover{background:rgba(192,132,252,.12)}
+  ::-webkit-scrollbar{width:8px;height:8px}
+}
+
+/* Safe area for notched iPads */
+@supports (padding: env(safe-area-inset-bottom)) {
+  .app{padding-bottom:env(safe-area-inset-bottom)}
+  .sidebar{padding-bottom:calc(10px + env(safe-area-inset-bottom))}
+  .log-bar{padding-bottom:env(safe-area-inset-bottom)}
+}
 </style>
 </head>
 <body>
@@ -1054,8 +1178,8 @@ async function loadBrowse(){
     _allConcepts=concepts||[];
     el('browseBadge').textContent=_browsePapers.length+' papers';
     renderPapers(_browsePapers);
-    // Keep concepts accessible via header button
-    el('browsePaperHeader').innerHTML=_conceptsBtn(concepts);
+    // Keep concepts accessible via header ticker
+    el('browsePaperHeader').innerHTML=_conceptsTicker(concepts);
   }catch(_){}
 }
 
