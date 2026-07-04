@@ -1729,7 +1729,8 @@ async function openPaperFile(reqPath, ext){
     preview.innerHTML='<iframe src="/api/raw?path='+encodeURIComponent(reqPath)+'" style="width:100%;height:100%;border:none" allowfullscreen></iframe>';
     return;
   }
-  preview.innerHTML='<div style="color:var(--red);font-size:12px">Failed to load file.</div>';
+  // Try serving as raw text via /api/raw
+  preview.innerHTML='<pre style="margin:0;font-size:11px;line-height:1.5;overflow-x:auto;background:var(--bg);padding:10px;border-radius:8px"><code>'+esc(reqPath)+' <span style="color:var(--text3)">(file not loadable)</span></code></pre>';
 }
 
 function toggleBrowseList(){
