@@ -1057,13 +1057,15 @@ function renderGraph(data){
     .attr('fill',GS.webColor).attr('stroke',GS.webColor).attr('stroke-width',1.5).attr('stroke-opacity',.8);
   node.filter(d=>d.type!=='paper'&&d.group!==0&&d.type!=='web').append('circle')
     .attr('r',cs).attr('fill',GS.conceptColor).attr('stroke',GS.conceptColor).attr('stroke-width',1.5).attr('stroke-opacity',.8);
-  node.append('text').text(d=>d.label?.substring(0,25)).attr('font-size','10px').attr('dx',14).attr('dy',4).attr('fill','#94a3b8');
+  const isLight=document.body.classList.contains('light');
+  const labelFill=isLight?'#1e293b':'#e2e8f0';
+  node.append('text').text(d=>d.label?.substring(0,25)).attr('font-size','10px').attr('dx',14).attr('dy',4).attr('fill',labelFill).attr('font-weight','500');
   node.on('click',function(e,d){showNodePreview(d);});
   node.on('mouseenter',function(e,d){
-    let tip = '<b>'+esc(d.label)+'</b>'+(d.type?' <span style="color:#94a3b8">('+d.type+')</span>':'');
+    let tip = '<b>'+esc(d.label)+'</b>'+(d.type?' <span style="color:'+labelFill+'">('+d.type+')</span>':'');
     if(d.abstract) tip += '<br>'+esc(d.abstract.substring(0,250));
     else if(d.definition) tip += '<br><i>'+esc(d.definition)+'</i>';
-    else if(d.type==='concept') tip += '<br><span style="color:#64748b">Extracted concept</span>';
+    else if(d.type==='concept') tip += '<br><span style="color:'+labelFill+'">Extracted concept</span>';
     else if(d.type==='web') tip += '<br><span style="color:#fb923c">Web resource</span>';
     tooltip.style('opacity',1).html(tip);
     d3.select(this).select('rect,circle').attr('stroke-width',3);
@@ -2163,7 +2165,7 @@ function renderPoolGraph(data){
   // Theme-aware colors — brighter edges for both themes
   const edgeColor=isLight?'#6366f1':'#818cf8';
   const edgeGlow=isLight?'rgba(99,102,241,.4)':'rgba(129,140,248,.5)';
-  const labelColor=isLight?'#475569':'#94a3b8';
+  const labelColor=isLight?'#1e293b':'#e2e8f0';
   const nodeStroke=isLight?'rgba(0,0,0,.1)':'rgba(255,255,255,.15)';
 
   // Glow filter for edges
@@ -2219,7 +2221,7 @@ function renderPoolGraph(data){
   node.append('rect').attr('width',8).attr('height',8).attr('x',-4).attr('y',-4).attr('rx',2)
     .attr('fill',d=>poolTopicColor(d.topics)).attr('stroke',nodeStroke).attr('stroke-width',1);
   node.filter(d=>d.is_new).append('text').text('!').attr('x',-4).attr('y',-7).attr('font-size','8px').attr('fill','#fbbf24').attr('font-weight','700');
-  node.append('text').text(d=>d.label?.substring(0,16)).attr('font-size','8px').attr('dx',10).attr('dy',3).attr('fill',labelColor);
+  node.append('text').text(d=>d.label?.substring(0,16)).attr('font-size','8px').attr('dx',10).attr('dy',3).attr('fill',labelColor).attr('font-weight','500');
   node.append('title').text(d=>d.label+(d.imported?' [Imported]':' [New]')+'\nTopics: '+(d.topics||[]).join(', '));
   sim.on('tick',()=>{link.attr('x1',d=>d.source.x).attr('y1',d=>d.source.y).attr('x2',d=>d.target.x).attr('y2',d=>d.target.y);node.attr('transform',d=>'translate('+d.x+','+d.y+')')});
 }
