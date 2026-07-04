@@ -117,6 +117,18 @@ class WebIngester:
         images = extract_images(html, url)
         links = extract_links(html, url)
 
+        # Convert HTML to proper Markdown
+        try:
+            import html2text
+            h = html2text.HTML2Text()
+            h.body_width = 0
+            h.ignore_links = False
+            h.ignore_images = False
+            h.ignore_emphasis = False
+            markdown_content = h.handle(html)
+        except ImportError:
+            markdown_content = body_text
+
         content_for_llm = (
             f"Title: {title}\n"
             f"{'Description: ' + description + chr(10) if description else ''}"
@@ -170,7 +182,7 @@ class WebIngester:
             except Exception as e:
                 logger.warning("Failed to download image %s: %s", img_url, e)
 
-        # Write full article content as markdown
+        # Write full article content as formatted markdown
         article_lines = [
             "---",
             f"url: {url}",
@@ -181,11 +193,12 @@ class WebIngester:
             "",
             description,
             "",
-            "---",
-            "",
-            body_text,
+            markdown_content,
         ]
         (web_vault / "article.md").write_text("\n".join(article_lines))
+
+        # Save HTML copy for reference
+        (web_vault / "article.html").write_text(html)
 
         # Write summary/notes with tags and figures
         note_lines = [

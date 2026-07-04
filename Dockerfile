@@ -11,7 +11,7 @@ COPY hive-research/pyproject.toml /app/hive-research/pyproject.toml
 COPY hive-research/hive_research/ /app/hive-research/hive_research/
 COPY hive-research/config.yaml /app/config.yaml
 
-RUN pip install --no-cache-dir /app/hive-research/
+RUN pip install --no-cache-dir /app/hive-research/ html2text
 RUN cp /app/hive-research/hive_research/dashboard.html /usr/local/lib/python3.13/site-packages/hive_research/dashboard.html
 
 RUN groupadd -r hive && useradd -r -g hive -d /app -s /bin/false hive
