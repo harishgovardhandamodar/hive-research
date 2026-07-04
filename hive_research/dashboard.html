@@ -381,9 +381,8 @@ textarea{resize:vertical;min-height:60px;font-family:inherit}
     <!-- Right: paper detail + file groups + preview (3/4) -->
     <div id="browseRight" style="flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0">
       <div id="browsePaperDetail" style="display:none;flex-direction:column;flex:1;overflow:hidden">
-        <div id="browsePaperHeader" style="padding:10px 14px;border-bottom:1px solid var(--border);flex-shrink:0">
-          <span id="browseCollapseTopBtn" onclick="toggleBrowseTop()" style="float:right;cursor:pointer;font-size:10px;color:var(--text3);padding:2px 6px;border-radius:3px;margin-top:2px" title="Collapse top panel">&#x25B2;</span>
-        </div>
+        <div id="browsePaperHeader" style="padding:10px 14px;border-bottom:1px solid var(--border);flex-shrink:0"></div>
+        <div id="browseTopToggle" onclick="toggleBrowseTop()" style="display:none;cursor:pointer;font-size:9px;color:var(--text3);text-align:center;padding:1px 0;background:var(--surface);border-bottom:1px solid var(--border);user-select:none;flex-shrink:0" title="Collapse top panel">&#x25B2;</div>
         <div id="browseTopPanel" style="overflow:hidden;transition:max-height .25s ease">
           <div id="browseFileGroups" style="padding:6px 14px;overflow-y:auto;flex-shrink:0;max-height:180px"></div>
           <div id="browseLineage" style="display:none;padding:6px 14px;border-top:1px solid var(--border);flex-shrink:0;max-height:120px;overflow-y:auto;font-size:11px;background:var(--surface)"></div>
@@ -1175,6 +1174,8 @@ function selectPaper(paperId){
   _currentPreviewFile=null;
   // render lineage from graph data
   renderLineage(paperId);
+  // show top panel toggle bar
+  el('browseTopToggle').style.display='block';
 }
 
 function renderPaperFiles(p){
@@ -1308,7 +1309,7 @@ function toggleBrowseList(){
 }
 function toggleBrowseTop(){
   const panel=el('browseTopPanel');
-  const btn=el('browseCollapseTopBtn');
+  const btn=el('browseTopToggle');
   const collapsed=panel.dataset.collapsed==='true';
   if(collapsed){
     panel.style.maxHeight=panel.scrollHeight+'px';
@@ -1316,7 +1317,6 @@ function toggleBrowseTop(){
     btn.innerHTML='&#x25B2;';
     btn.title='Collapse top panel';
     localStorage.setItem('hive_browse_top_collapsed','0');
-    // Allow dynamic resizing by removing max-height after transition
     setTimeout(()=>{if(panel.dataset.collapsed!=='true')panel.style.maxHeight='none'},280);
   }else{
     panel.dataset.full=panel.scrollHeight;
@@ -1768,7 +1768,7 @@ window.addEventListener('resize',()=>{
   const bc=localStorage.getItem('hive_browse_collapsed');
   if(bc==='1'){const el_=el('browseLeft');const btn=el('browseToggleCol');if(el_){el_.style.width='0';el_.style.minWidth='0';el_.dataset.collapsed='true';if(btn){btn.innerHTML='&#x25B6;';btn.title='Show paper list'}}}
   const tc=localStorage.getItem('hive_browse_top_collapsed');
-  if(tc==='1'){const panel=el('browseTopPanel');const btn=el('browseCollapseTopBtn');if(panel){panel.dataset.full=panel.scrollHeight;panel.style.maxHeight='0';panel.dataset.collapsed='true';if(btn){btn.innerHTML='&#x25BC;';btn.title='Expand top panel'}}}
+  if(tc==='1'){const panel=el('browseTopPanel');const btn=el('browseTopToggle');if(panel){panel.dataset.full=panel.scrollHeight;panel.style.maxHeight='0';panel.dataset.collapsed='true';if(btn){btn.innerHTML='&#x25BC;';btn.title='Expand top panel';btn.style.display='block'}}}
 })();
 (function(){
   // Restore model preference
