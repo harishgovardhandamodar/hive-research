@@ -838,6 +838,9 @@ function toggleTheme(){
   const isLight=document.body.classList.contains('light');
   localStorage.setItem('hive_theme',isLight?'light':'dark');
   el('themeToggle').textContent=isLight?'\u2600':'\u263E';
+  // Update graph edge colors for theme
+  GS.edgeColor=isLight?'#3b82f6':'#60a5fa';
+  if(gData&&gData.nodes)renderGraph(gData);
 }
 (function(){
   const saved=localStorage.getItem('hive_theme');
@@ -917,9 +920,15 @@ async function refreshPapers(){
 }
 
 // ── Graph Style Controls ──
-let GS={paperColor:'#60a5fa',lineageColor:'#2dd4bf',webColor:'#fb923c',conceptColor:'#c084fc',edgeColor:'#1e3a5f',citeColor:'#34d399',paperSize:14,conceptSize:7};
+let GS={paperColor:'#60a5fa',lineageColor:'#2dd4bf',webColor:'#fb923c',conceptColor:'#c084fc',edgeColor:'#60a5fa',citeColor:'#34d399',paperSize:14,conceptSize:7};
+// Theme-aware edge: use accent blue in dark, deeper blue in light
 (function(){
-  try{const s=JSON.parse(localStorage.getItem('hive_graph_style'));if(s)Object.assign(GS,s)}catch(_){}
+  try{
+    const s=JSON.parse(localStorage.getItem('hive_graph_style'));
+    if(s)Object.assign(GS,s);
+    // Override edge colors if not user-customized (no saved pref)
+    if(!s||!s.edgeColor)GS.edgeColor=document.body.classList.contains('light')?'#3b82f6':'#60a5fa';
+  }catch(_){}
   const set=function(id,val){const e=document.getElementById(id);if(e)e.value=val};
   set('gcPaperColor',GS.paperColor);set('gcLineageColor',GS.lineageColor);set('gcWebColor',GS.webColor);set('gcConceptColor',GS.conceptColor);
   set('gcEdgeColor',GS.edgeColor);set('gcCiteColor',GS.citeColor);
@@ -947,7 +956,8 @@ function applyGraphStyle(){
   if(gData.nodes)renderGraph(gData);
 }
 function resetGraphStyle(){
-  GS={paperColor:'#60a5fa',lineageColor:'#2dd4bf',webColor:'#fb923c',conceptColor:'#c084fc',edgeColor:'#1e3a5f',citeColor:'#34d399',paperSize:14,conceptSize:7};
+  const isLight=document.body.classList.contains('light');
+  GS={paperColor:'#60a5fa',lineageColor:'#2dd4bf',webColor:'#fb923c',conceptColor:'#c084fc',edgeColor:isLight?'#3b82f6':'#60a5fa',citeColor:'#34d399',paperSize:14,conceptSize:7};
   saveGraphStyle();
   const set=function(id,val){const e=document.getElementById(id);if(e)e.value=val};
   set('gcPaperColor',GS.paperColor);set('gcLineageColor',GS.lineageColor);set('gcWebColor',GS.webColor);set('gcConceptColor',GS.conceptColor);
