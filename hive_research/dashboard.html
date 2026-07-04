@@ -447,6 +447,10 @@ select{cursor:pointer}
     <button class="btn btn-sm" onclick="refreshPapers()" style="margin-left:auto;font-size:10px">&#x1F504; Refresh</button>
     <button class="btn btn-sm" onclick="generateDefs()" style="font-size:10px">&#x1F4DD; Fill Definitions</button>
     <button class="btn btn-sm btn-outline" onclick="toggleGraphControls()" style="font-size:12px;margin-left:4px" id="gcToggle">&#x2699;</button>
+    <div style="display:flex;gap:2px;margin-left:6px">
+      <button id="graphViewBtn" class="btn btn-sm" onclick="switchGraphView('graph')" style="background:var(--accent);color:white;font-size:10px">&#x25E1; Graph</button>
+      <button id="vectorsViewBtn" class="btn btn-sm btn-outline" onclick="switchGraphView('vectors')" style="font-size:10px">&#x1F4A1; Vectors</button>
+    </div>
   </h2></div>
   <div class="panel-body" style="padding-top:8px">
     <div id="graphControls" style="display:none;flex-shrink:0;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:12px;margin-bottom:8px;gap:8px;flex-wrap:wrap">
@@ -478,6 +482,14 @@ select{cursor:pointer}
           <div id="previewActions" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px"></div>
           <div id="previewMore" style="color:var(--text3);font-size:10px;border-top:1px solid var(--border);padding-top:6px"></div>
         </div>
+      <!-- Vector visualization (hidden by default) -->
+      <div id="vectorWrap" style="flex:1;position:relative;min-height:300px;display:none;border-radius:var(--radius);border:1px solid var(--border);overflow:hidden;background:var(--bg)">
+        <svg width="100%" height="100%"></svg>
+        <div id="vectorEmpty" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;color:var(--text3);pointer-events:none;opacity:.6">
+          <div style="font-size:32px;margin-bottom:8px">&#x1F4A1;</div>
+          <div>No vectors computed yet.<br>Go to Similarity tab and click "Compute Vectors"</div>
+        </div>
+        <div id="vectorTooltip" style="position:absolute;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-size:11px;max-width:280px;pointer-events:none;opacity:0;transition:opacity .15s;z-index:50;box-shadow:var(--shadow);line-height:1.5"></div>
       </div>
   </div>
 </div>
@@ -967,7 +979,71 @@ function resetGraphStyle(){
   if(gData.nodes&&gData.nodes.length)renderGraph(gData);
 }
 
-// ── Knowledge Graph (D3) ──
+// ── Knowledge Graph / Vector View ──
+let _vectorData=null;
+
+function switchGraphView(view){
+  const isGraph=view==='graph';
+  el('graphWrap').style.display=isGraph?'':'none';
+  el('vectorWrap').style.display=isGraph?'none':'';
+  el('graphViewBtn').className='btn btn-sm'+(isGraph?'':' btn-outline');
+  el('vectorsViewBtn').className='btn btn-sm'+(isGraph?' btn-outline':'');
+  if(isGraph)el('graphViewBtn').style.background='var(--accent)';el('graphViewBtn').style.color='white';
+  else el('vectorsViewBtn').style.background='var(--accent)';el('vectorsViewBtn').style.color='white';
+  if(!isGraph)loadVectorView();
+}
+async function loadVectorView(){
+  try{
+    const data=await api('/api/vectors/project');
+    if(!data||!data.length){el('vectorEmpty').style.display='';return}
+    el('vectorEmpty').style.display='none';
+    _vectorData=data;
+    renderVectors(data);
+  }catch(_){}
+}
+function renderVectors(data){
+  const wrap=el('vectorWrap');
+  const svg=d3.select('#vectorWrap svg');
+  svg.selectAll('*').remove();
+  const rect=wrap.getBoundingClientRect();
+  const W=rect.width||800,H=Math.max(rect.height||400,300);
+  svg.attr('width',W).attr('height',H).attr('viewBox',[0,0,W,H]);
+  const margin=60;
+  const xs=data.map(d=>d.x),ys=data.map(d=>d.y);
+  const xMin=Math.min(...xs),xMax=Math.max(...xs),yMin=Math.min(...ys),yMax=Math.max(...ys);
+  const xPad=(xMax-xMin||1)*0.1,yPad=(yMax-yMin||1)*0.1;
+  const xScale=d3.scaleLinear().domain([xMin-xPad,xMax+xPad]).range([margin,W-margin]);
+  const yScale=d3.scaleLinear().domain([yMin-yPad,yMax+yPad]).range([H-margin,margin]);
+  const tooltip=d3.select('#vectorTooltip');
+  const zoom=d3.zoom().scaleExtent([0.5,10]).on('zoom',(e)=>{container.attr('transform',e.transform)});
+  const container=svg.append('g');
+  svg.call(zoom).on('dblclick.zoom',null);
+  // Axes
+  container.append('g').attr('transform',`translate(0,${H-margin})`).call(d3.axisBottom(xScale).ticks(5)).attr('color','var(--text3)').attr('font-size','9px');
+  container.append('g').attr('transform',`translate(${margin},0)`).call(d3.axisLeft(yScale).ticks(5)).attr('color','var(--text3)').attr('font-size','9px');
+  // Grid lines
+  container.append('g').attr('stroke','var(--border)').attr('stroke-opacity',.3).selectAll('line').data(xScale.ticks(5)).join('line').attr('x1',d=>xScale(d)).attr('x2',d=>xScale(d)).attr('y1',margin).attr('y2',H-margin);
+  container.append('g').attr('stroke','var(--border)').attr('stroke-opacity',.3).selectAll('line').data(yScale.ticks(5)).join('line').attr('y1',d=>yScale(d)).attr('y2',d=>yScale(d)).attr('x1',margin).attr('x2',W-margin);
+  // Scatter dots
+  const dots=container.append('g').selectAll('circle').data(data).join('circle')
+    .attr('cx',d=>xScale(d.x)).attr('cy',d=>yScale(d.y)).attr('r',5)
+    .attr('fill','var(--accent)').attr('stroke','var(--accent2)').attr('stroke-width',1).attr('stroke-opacity',.6)
+    .attr('opacity',.85).style('cursor','pointer');
+  dots.append('title').text(d=>d.label+(d.authors?'\n'+d.authors:''));
+  dots.on('mouseenter',function(e,d){
+    d3.select(this).attr('r',8).attr('stroke-width',2);
+    tooltip.style('opacity',1).html('<b>'+esc(d.label)+'</b>'+(d.authors?'<br><span style="color:var(--text3)">'+esc(d.authors)+'</span>':''));
+  }).on('mousemove',function(e){
+    const r=wrap.getBoundingClientRect();
+    tooltip.style('left',(e.clientX-r.left+12)+'px').style('top',(e.clientY-r.top-10)+'px');
+  }).on('mouseleave',function(){d3.select(this).attr('r',5).attr('stroke-width',1);tooltip.style('opacity',0);})
+  .on('click',function(e,d){switchPanel('browse');setTimeout(()=>selectPaper(d.id),100);});
+  // Labels
+  container.append('g').selectAll('text').data(data).join('text')
+    .attr('x',d=>xScale(d.x)+7).attr('y',d=>yScale(d.y)+2)
+    .text(d=>d.label.substring(0,20)).attr('font-size','8px').attr('fill','var(--text2)').attr('font-weight','500');
+}
+
 function renderGraph(data){
   const wrap=el('graphWrap');
   if(!wrap){addLog('graphWrap not found, retrying...','WARN');setTimeout(()=>renderGraph(data),200);return}

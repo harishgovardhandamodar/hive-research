@@ -127,6 +127,67 @@ class PaperVectorStore:
             return 0.0
         return dot / (na * nb)
 
+    def _proj_path(self) -> Path:
+        return self.store_dir / "projection.npy"
+
+    def project(self) -> list[dict[str, Any]]:
+        if not self.ready or self._vectors is None:
+            return []
+        # Try loading cached projection
+        if self._proj_path().exists():
+            try:
+                proj = np.load(str(self._proj_path()))
+                if proj.shape[0] == len(self._paper_ids) and proj.shape[1] == 2:
+                    results = []
+                    for i, pid in enumerate(self._paper_ids):
+                        n = self._find_node(pid)
+                        results.append({
+                            "id": pid,
+                            "x": round(float(proj[i, 0]), 4),
+                            "y": round(float(proj[i, 1]), 4),
+                            "label": n.label if n else pid,
+                            "authors": getattr(n, "authors", "")[:60] if n else "",
+                        })
+                    return results
+            except Exception:
+                pass
+
+        # Compute PCA via SVD
+        X = self._vectors - self._vectors.mean(axis=0)
+        U, S, Vt = np.linalg.svd(X, full_matrices=False)
+        proj = U[:, :2] * S[:2]
+
+        # Cache
+        np.save(str(self._proj_path()), proj)
+
+        results = []
+        for i, pid in enumerate(self._paper_ids):
+            n = self._find_node(pid)
+            results.append({
+                "id": pid,
+                "x": round(float(proj[i, 0]), 4),
+                "y": round(float(proj[i, 1]), 4),
+                "label": n.label if n else pid,
+                "authors": getattr(n, "authors", "")[:60] if n else "",
+            })
+        return results
+
+    def clear(self) -> None:
+        self._vectors = None
+        self._paper_ids = []
+        for p in [self._index_path(), self._vectors_path(), self._proj_path()]:
+            try:
+                p.unlink(missing_ok=True)
+            except Exception:
+                pass
+        logger.info("Paper vectors cleared")
+
+    def _find_node(self, pid: str) -> Any:
+        for p in self.kg.papers:
+            if p.id == pid:
+                return p
+        return None
+
     def status(self) -> dict[str, Any]:
         return {
             "ready": self.ready,

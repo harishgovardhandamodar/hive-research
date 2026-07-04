@@ -87,6 +87,9 @@ class Organizer:
         count = self.vectors.compute_all()
         return {"status": "ok", "computed": count, "total": len(self.kg.papers)}
 
+    def project_vectors(self) -> list[dict[str, Any]]:
+        return self.vectors.project()
+
     def similarity(self, paper_ids: list[str] | None = None, algorithm: str = "combined") -> list[dict[str, Any]]:
         return paper_similarity_matrix(self.kg, paper_ids=paper_ids, algorithm=algorithm, vector_store=self.vectors)
 
