@@ -7,7 +7,7 @@ services:
     ports:
       - "7777:7777"
     volumes:
-      - hive_data:/app/data
+      - /Users/harishgovardhandamodar/codebase/hive-research-data:/app/data
     environment:
       - OLLAMA_BASE_URL=http://host.docker.internal:11434
       - OLLAMA_MODEL=${OLLAMA_MODEL:-llama3.2:3b}
@@ -16,6 +16,3 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     restart: unless-stopped
-
-volumes:
-  hive_data:
