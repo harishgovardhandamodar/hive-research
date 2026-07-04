@@ -2131,10 +2131,19 @@ function renderPoolGraph(data){
   if(!data.nodes||!data.nodes.length){svg.append('text').attr('x',W/2).attr('y',H/2).attr('text-anchor','middle').attr('fill','var(--text3)').attr('font-size','13px').text('No pool graph data');return}
   const links=data.edges.map(d=>({...d})),nodes=data.nodes.map(d=>({...d}));
 
-  // Theme-aware colors
-  const edgeColor=isLight?'#94a3b8':'#1e3a5f';
+  // Theme-aware colors — brighter edges for both themes
+  const edgeColor=isLight?'#6366f1':'#818cf8';
+  const edgeGlow=isLight?'rgba(99,102,241,.4)':'rgba(129,140,248,.5)';
   const labelColor=isLight?'#475569':'#94a3b8';
   const nodeStroke=isLight?'rgba(0,0,0,.1)':'rgba(255,255,255,.15)';
+
+  // Glow filter for edges
+  const defs=svg.append('defs');
+  const glowFilter=defs.append('filter').attr('id','poolEdgeGlow').attr('x','-20%').attr('y','-20%').attr('width','140%').attr('height','140%');
+  glowFilter.append('feGaussianBlur').attr('stdDeviation','2').attr('result','blur');
+  const merge=glowFilter.append('feMerge');
+  merge.append('feMergeNode').attr('in','blur');
+  merge.append('feMergeNode').attr('in','SourceGraphic');
 
   const topics=[...new Set(nodes.flatMap(n=>n.topics||[]))].sort();
   const tCount=topics.length||1;
@@ -2168,8 +2177,14 @@ function renderPoolGraph(data){
 
   const link=container.append('g').selectAll('line').data(links).join('line')
     .attr('stroke',edgeColor)
-    .attr('stroke-width',l=>Math.max(.3,l.similarity*2))
-    .attr('stroke-opacity',l=>Math.min(.5,.15+l.similarity*0.5));
+    .attr('stroke-width',l=>Math.max(.5,l.similarity*3))
+    .attr('stroke-opacity',l=>Math.min(.85,.25+l.similarity*0.7))
+    .attr('filter','url(#poolEdgeGlow)');
+  // Subtle under-glow for high-similarity edges
+  const linkGlow=container.append('g').selectAll('line').data(links).join('line')
+    .attr('stroke',edgeGlow)
+    .attr('stroke-width',l=>Math.max(2,l.similarity*8))
+    .attr('stroke-opacity',l=>Math.min(.3,l.similarity*0.5));
   const node=container.append('g').selectAll('g').data(nodes).join('g')
     .call(d3.drag().on('start',(e,d)=>{if(!e.active)sim.alphaTarget(.3).restart();d.fx=d.x;d.fy=d.y}).on('drag',(e,d)=>{d.fx=e.x;d.fy=e.y}).on('end',(e,d)=>{if(!e.active)sim.alphaTarget(0);d.fx=null;d.fy=null}));
   node.append('rect').attr('width',8).attr('height',8).attr('x',-4).attr('y',-4).attr('rx',2)
