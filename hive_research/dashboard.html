@@ -542,7 +542,7 @@ select{cursor:pointer}
       <div id="browsePapers" style="flex:1;overflow-y:auto;padding:2px 0"></div>
     </div>
     <!-- Toggle button (always visible) -->
-    <div id="browseToggleCol" onclick="toggleBrowseList()" style="width:14px;min-width:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;background:var(--surface);border-right:1px solid var(--border);flex-shrink:0;font-size:9px;color:var(--text3);user-select:none;transition:background .15s" title="Toggle paper list">&#x25C0;</div>
+    <div id="browseToggleCol" style="width:16px;min-width:16px;cursor:col-resize;display:flex;align-items:center;justify-content:center;background:var(--surface);border-right:1px solid var(--border);flex-shrink:0;font-size:9px;color:var(--text3);user-select:none;transition:background .15s" title="Drag to resize. Click to toggle.">&#x25C0;</div>
     <!-- Right: paper detail + file groups + preview (3/4) -->
     <div id="browseRight" style="flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0">
       <div id="browsePaperDetail" style="display:none;flex-direction:column;flex:1;overflow:hidden">
@@ -1565,12 +1565,14 @@ function toggleBrowseList(){
   const btn=el('browseToggleCol');
   const collapsed=el_.dataset.collapsed==='true';
   if(collapsed){
-    el_.style.width='25%';el_.style.minWidth='220px';
+    const saved=parseInt(localStorage.getItem('hive_browse_width'))||Math.round(window.innerWidth*0.25);
+    el_.style.width=saved+'px';el_.style.minWidth='120px';
     el_.dataset.collapsed='false';
     btn.innerHTML='&#x25C0;';
-    btn.title='Collapse paper list';
+    btn.title='Drag to resize. Click to collapse.';
     localStorage.setItem('hive_browse_collapsed','0');
   }else{
+    localStorage.setItem('hive_browse_width',String(el_.offsetWidth));
     el_.style.width='0';el_.style.minWidth='0';
     el_.dataset.collapsed='true';
     btn.innerHTML='&#x25B6;';
@@ -1578,6 +1580,54 @@ function toggleBrowseList(){
     localStorage.setItem('hive_browse_collapsed','1');
   }
 }
+
+(function(){
+  const left=el('browseLeft');
+  const resizer=el('browseToggleCol');
+  let startX=0,startW=0,isDragging=false;
+  function onStart(e){
+    startX=e.clientX||(e.touches&&e.touches[0].clientX);
+    startW=left.offsetWidth;
+    isDragging=false;
+    document.addEventListener('mousemove',onMove);
+    document.addEventListener('mouseup',onEnd);
+    document.addEventListener('touchmove',onMove,{passive:false});
+    document.addEventListener('touchend',onEnd);
+    e.preventDefault();
+  }
+  function onMove(e){
+    const clientX=e.clientX||(e.touches&&e.touches[0].clientX);
+    const dx=clientX-startX;
+    if(Math.abs(dx)>5)isDragging=true;
+    if(!isDragging)return;
+    const newW=Math.max(120,Math.min(Math.round(window.innerWidth*0.5),startW+dx));
+    left.style.width=newW+'px';left.style.minWidth='120px';
+    left.dataset.collapsed='false';
+    el('browseToggleCol').innerHTML='&#x25C0;';
+    el('browseToggleCol').title='Drag to resize. Click to collapse.';
+    left.style.transition='none';
+  }
+  function onEnd(){
+    left.style.transition='';
+    if(isDragging){
+      const w=left.offsetWidth;
+      localStorage.setItem('hive_browse_width',String(w));
+      localStorage.setItem('hive_browse_collapsed','0');
+    }else{
+      // Click (no drag) — toggle
+      toggleBrowseList();
+    }
+    document.removeEventListener('mousemove',onMove);
+    document.removeEventListener('mouseup',onEnd);
+    document.removeEventListener('touchmove',onMove);
+    document.removeEventListener('touchend',onEnd);
+  }
+  resizer.addEventListener('mousedown',onStart);
+  resizer.addEventListener('touchstart',onStart,{passive:false});
+  // Restore saved width on load
+  const savedW=localStorage.getItem('hive_browse_width');
+  if(savedW){const w=parseInt(savedW);if(w>120&&w<window.innerWidth*0.5){left.style.width=w+'px';left.style.minWidth='120px'}}
+})();
 function toggleBrowseTop(){
   const panel=el('browseTopPanel');
   const btn=el('browseTopToggle');
