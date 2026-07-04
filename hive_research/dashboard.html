@@ -988,8 +988,8 @@ function switchGraphView(view){
   el('vectorWrap').style.display=isGraph?'none':'';
   el('graphViewBtn').className='btn btn-sm'+(isGraph?'':' btn-outline');
   el('vectorsViewBtn').className='btn btn-sm'+(isGraph?' btn-outline':'');
-  if(isGraph)el('graphViewBtn').style.background='var(--accent)';el('graphViewBtn').style.color='white';
-  else el('vectorsViewBtn').style.background='var(--accent)';el('vectorsViewBtn').style.color='white';
+  if(isGraph){el('graphViewBtn').style.background='var(--accent)';el('graphViewBtn').style.color='white'}
+  else{el('vectorsViewBtn').style.background='var(--accent)';el('vectorsViewBtn').style.color='white'}
   if(!isGraph)loadVectorView();
 }
 async function loadVectorView(){
