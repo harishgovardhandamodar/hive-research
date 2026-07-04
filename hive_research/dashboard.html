@@ -384,6 +384,10 @@ textarea{resize:vertical;min-height:60px;font-family:inherit}
       <div id="browsePaperDetail" style="display:none;flex-direction:column;flex:1;overflow:hidden">
         <div id="browsePaperHeader" style="padding:10px 14px;border-bottom:1px solid var(--border);flex-shrink:0"></div>
         <div id="browseFileGroups" style="padding:6px 14px;overflow-y:auto;flex-shrink:0;max-height:180px"></div>
+        <div id="browsePreviewToolbar" style="display:none;padding:4px 14px;border-top:1px solid var(--border);flex-shrink:0;gap:6px;align-items:center">
+          <span id="browsePreviewPath" style="font-size:10px;color:var(--text3);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span>
+          <button class="btn btn-sm btn-outline" onclick="recreateCurrentNotes()" title="Regenerate vault notes for this paper">&#x21BB; Recreate Notes</button>
+        </div>
         <div id="browsePaperPreview" style="flex:1;overflow-y:auto;padding:10px 14px;border-top:1px solid var(--border)" class="markdown-body"></div>
       </div>
       <div id="browseRightEmpty" style="flex:1;display:flex;align-items:center;justify-content:center;color:var(--text3);font-size:13px;flex-direction:column;gap:8px">
@@ -989,6 +993,7 @@ async function importSearch(){
 let _browsePapers=[];
 let _browseFileTree=[];
 let _selectedPaper=null;
+let _currentPreviewFile=null;
 
 async function loadBrowse(){
   try{
@@ -1051,6 +1056,22 @@ async function refreshPaperNote(paperId){
   }
 }
 
+async function recreateCurrentNotes(){
+  if(!_selectedPaper){addLog('No paper selected','ERROR');return}
+  const pid=_selectedPaper.id;
+  const btn=el('browsePreviewToolbar').querySelector('button');
+  if(btn){btn.disabled=true;btn.textContent='\u21BB Refreshing...';}
+  await refreshPaperNote(pid);
+  // Reload preview after a delay
+  setTimeout(async()=>{
+    if(btn){btn.disabled=false;btn.textContent='\u21BB Recreate Notes';}
+    if(_currentPreviewFile){
+      const ext=_currentPreviewFile.endsWith('.md')?'.md':'.note';
+      await openPaperFile(_currentPreviewFile, ext);
+    }
+  },8000);
+}
+
 function selectPaper(paperId){
   const p=_browsePapers.find(x=>x.id===paperId);
   if(!p)return;
@@ -1072,6 +1093,8 @@ function selectPaper(paperId){
   renderPaperFiles(p);
   // clear preview
   el('browsePaperPreview').innerHTML='<div style="color:var(--text3);font-size:11px;padding:10px;text-align:center">Click a file below to preview</div>';
+  el('browsePreviewToolbar').style.display='none';
+  _currentPreviewFile=null;
 }
 
 function renderPaperFiles(p){
@@ -1141,6 +1164,10 @@ function toggleFG(el){
 async function openPaperFile(reqPath, ext){
   const preview=el('browsePaperPreview');
   preview.innerHTML='<div style="color:var(--text3);padding:10px">Loading...</div>';
+  _currentPreviewFile=reqPath;
+  const tb=el('browsePreviewToolbar');
+  tb.style.display='flex';
+  el('browsePreviewPath').textContent=_selectedPaper?.id?(_selectedPaper.id+' / '+reqPath):reqPath;
   // Note files from vault (prefixed with Notes/)
   if(reqPath.startsWith('Notes/')||ext==='note'){
     const notePath = ext==='note' ? 'Notes/'+reqPath : reqPath;
