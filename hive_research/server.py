@@ -100,8 +100,23 @@ class RouteHandler(BaseHTTPRequestHandler):
                     note_dir = str(Path(vault_dir) / safe)
                 else:
                     legacy = Path(vault_dir) / f"{safe}.md"
-                    note_path = str(legacy) if legacy.exists() else ""
-                    note_dir = note_path
+                    if legacy.exists():
+                        note_path = str(legacy)
+                        note_dir = note_path
+                    elif n.type == "web":
+                        # For web articles, also try lookup matching the graph node ID suffix
+                        suffix = n.id.replace("web_", "")
+                        for sub in Path(vault_dir).iterdir():
+                            if sub.is_dir() and suffix in sub.name:
+                                note_dir = str(sub)
+                                note_path = str(sub / "00_notes.md") if (sub / "00_notes.md").exists() else ""
+                                break
+                        else:
+                            note_path = ""
+                            note_dir = ""
+                    else:
+                        note_path = ""
+                        note_dir = ""
                 papers.append({
                     "id": n.id, "title": n.label,
                     "authors": getattr(n, "authors", ""),
