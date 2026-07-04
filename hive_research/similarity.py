@@ -85,12 +85,26 @@ def paper_similarity_matrix(
     vector_store: PaperVectorStore | None = None,
 ) -> list[dict[str, Any]]:
     algo = ALGORITHMS.get(algorithm, ALGORITHMS["combined"])
-    papers = kg.papers
-    if paper_ids:
-        papers = [p for p in papers if p.id in paper_ids]
+    all_papers = kg.papers
+    if paper_ids and len(paper_ids) == 1:
+        # Single paper: compare against all others
+        singles = [pid.strip() for pid in paper_ids]
+        papers = [p for p in all_papers if p.id in singles]
+        peers = [p for p in all_papers if p.id not in singles]
+    elif paper_ids:
+        papers = [p for p in all_papers if p.id in paper_ids]
+        peers = papers
+    else:
+        papers = all_papers
+        peers = papers
     results = []
-    for i, p1 in enumerate(papers):
-        for p2 in papers[i + 1:]:
+    for p1 in papers:
+        for p2 in peers:
+            if p1.id == p2.id:
+                continue
+            # Avoid duplicate pairs
+            if peers is papers and papers.index(p2) <= papers.index(p1):
+                continue
             score = algo["fn"](kg=kg, p1=p1, p2=p2, pid1=p1.id, pid2=p2.id, vs=vector_store)
             results.append({
                 "source": p1.id,

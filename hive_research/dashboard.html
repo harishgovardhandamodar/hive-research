@@ -1144,6 +1144,52 @@ function showNodePreview(d){
     else abs='<span style="color:var(--text3)">Extracted concept</span>';
     meta='Concept';
   }
+  // Show concepts connected to this paper
+  if(d.type==='paper'||d.type==='web'||d.group===0){
+    const conceptLinks=gData.links&&gData.links.filter(l=>l.source===d.id);
+    if(conceptLinks&&conceptLinks.length){
+      const concepts=conceptLinks.map(l=>{
+        const n=gData.nodes&&gData.nodes.find(x=>x.id===l.target);
+        return n?n.label||n.title||l.target:l.target;
+      }).filter(Boolean);
+      if(concepts.length){
+        // Group by relation type
+        const byRel:{[key:string]:string[]}={};
+        conceptLinks.forEach(l=>{
+          const rel=l.relation||'related';
+          if(!byRel[rel])byRel[rel]=[];
+          const n=gData.nodes&&gData.nodes.find(x=>x.id===l.target);
+          byRel[rel].push(n?n.label||n.title||l.target:l.target);
+        });
+        let concH='<div style="margin-top:6px"><b>&#x1F4A1; Concepts</b><br>';
+        Object.entries(byRel).forEach(([rel,names])=>{
+          concH+='<div style="font-size:10px;color:var(--text3);margin:2px 0">'+esc(rel)+':</div><div style="display:flex;flex-wrap:wrap;gap:3px;margin-bottom:4px">';
+          concH+=names.map(n=>'<span class="concept-tag" style="font-size:10px;padding:1px 6px">'+esc(n.substring(0,25))+'</span>').join('');
+          concH+='</div>';
+        });
+        concH+='</div>';
+        more+=concH;
+      }
+    }
+    // Fetch vector similarity info
+    (async()=>{
+      try{
+        const vs=await api('/api/vectors/status');
+        if(!vs.ready)return;
+        const sim=await api('/api/similarity','POST',{paper_ids:[d.id],algorithm:'vector'});
+        if(sim&&sim.length){
+          let simH='<div style="margin-top:6px"><b>&#x1F9EA; Similar Papers</b><br><div style="font-size:10px;color:var(--text2);line-height:1.7">';
+          sim.slice(0,5).forEach(s=>{
+            const other=s.source===d.id?s.target_title:s.source_title;
+            simH+='<div style="display:flex;justify-content:space-between;gap:4px"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(other.substring(0,35))+'</span><span style="flex-shrink:0;color:var(--accent);font-weight:600">'+(s.score*100).toFixed(0)+'%</span></div>';
+          });
+          simH+='</div></div>';
+          const me=el('previewMore');
+          if(me)me.innerHTML+=simH;
+        }
+      }catch(_){}
+    })();
+  }
   el('previewMeta').innerHTML=meta;
   el('previewAbstract').innerHTML=abs;
   el('previewActions').innerHTML=actions;
