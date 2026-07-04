@@ -85,16 +85,15 @@ def paper_similarity_matrix(
     for i, p1 in enumerate(papers):
         for p2 in papers[i + 1:]:
             score = algo["fn"](kg, p1, p2, p1.id, p2.id)
-            if score > 0:
-                results.append({
-                    "source": p1.id,
-                    "source_title": p1.label,
-                    "target": p2.id,
-                    "target_title": p2.label,
-                    "score": round(score, 4),
-                    "author_overlap": round(_author_score(p1, p2), 4),
-                    "abstract_sim": round(_abstract_score(p1, p2), 4),
-                })
+            results.append({
+                "source": p1.id,
+                "source_title": p1.label,
+                "target": p2.id,
+                "target_title": p2.label,
+                "score": round(score, 4),
+                "author_overlap": round(_author_score(p1, p2), 4),
+                "abstract_sim": round(_abstract_score(p1, p2), 4),
+            })
     results.sort(key=lambda x: x["score"], reverse=True)
     return results
 
