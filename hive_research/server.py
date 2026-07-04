@@ -366,6 +366,24 @@ class RouteHandler(BaseHTTPRequestHandler):
                 )
                 if r.status_code == 200:
                     info["ollama_connected"] = True
+                # Try to get GPU metrics from Ollama
+                try:
+                    for ep in ["/api/gpu", "/api/ps"]:
+                        gr = requests.get(
+                            f"{self.org.config.ollama_base_url}{ep}", timeout=3
+                        )
+                        if gr.status_code == 200:
+                            gpu_data = gr.json()
+                            if isinstance(gpu_data, list) and len(gpu_data) > 0:
+                                info["gpu_usage"] = gpu_data[0].get("usage", gpu_data[0].get("memory_usage", None))
+                                info["gpu_name"] = gpu_data[0].get("name", "")
+                            elif isinstance(gpu_data, dict):
+                                info["gpu_usage"] = gpu_data.get("usage", gpu_data.get("load", None))
+                                info["gpu_name"] = gpu_data.get("name", gpu_data.get("gpu", ""))
+                            if info.get("gpu_usage") is not None:
+                                break
+                except Exception:
+                    pass
             except Exception:
                 info["ollama_connected"] = False
         _json_response(self, info)

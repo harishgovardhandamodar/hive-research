@@ -32,6 +32,7 @@
   --glass-bg2: rgba(15,22,41,.7);
   --glass-bg3: rgba(15,22,41,.95);
   --glass-bg4: rgba(26,35,64,.95);
+  --btn-text: #080c18;
 }
 .light {
   --bg: #f0f4f8;
@@ -56,6 +57,7 @@
   --glass-bg2: rgba(255,255,255,.7);
   --glass-bg3: rgba(255,255,255,.95);
   --glass-bg4: rgba(255,255,255,.95);
+  --btn-text: #ffffff;
 }
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--text);height:100vh;overflow:hidden;font-size:13px;letter-spacing:.01em}
@@ -109,12 +111,12 @@ input,textarea,select{padding:9px 12px;border:1px solid var(--border);border-rad
 input:focus,textarea:focus{border-color:var(--accent);box-shadow:0 0 0 4px rgba(96,165,250,.1),var(--glow)}
 textarea{resize:vertical;min-height:60px;font-family:inherit}
 select{cursor:pointer}
-.btn{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#080c18;border:none;padding:8px 18px;border-radius:var(--radius);cursor:pointer;font-size:12px;font-weight:600;transition:all .2s cubic-bezier(.4,0,.2,1);display:inline-flex;align-items:center;gap:6px;box-shadow:0 2px 8px rgba(96,165,250,.2)}
+.btn{background:linear-gradient(135deg,var(--accent),var(--accent2));color:var(--btn-text,#080c18);border:none;padding:8px 18px;border-radius:var(--radius);cursor:pointer;font-size:12px;font-weight:600;transition:all .2s cubic-bezier(.4,0,.2,1);display:inline-flex;align-items:center;gap:6px;box-shadow:0 2px 8px rgba(96,165,250,.2)}
 .btn:hover{filter:brightness(1.15);transform:translateY(-1px);box-shadow:0 4px 16px rgba(96,165,250,.3)}
 .btn:active{transform:translateY(0) scale(.97)}
 .btn-sm{padding:5px 12px;font-size:11px}
-.btn-outline{background:transparent;border:1px solid var(--border);color:var(--text2);box-shadow:none}
-.btn-outline:hover{background:var(--surface2);color:var(--text);border-color:var(--text3);box-shadow:none}
+.btn-outline{background:transparent;border:1px solid var(--text3);color:var(--text);box-shadow:none}
+.btn-outline:hover{background:var(--surface2);border-color:var(--text2);box-shadow:none}
 .btn-group{display:flex;gap:8px;flex-wrap:wrap}
 .btn-success{background:linear-gradient(135deg,var(--green),#2dd4a0);color:#080c18}
 .btn-warn{background:linear-gradient(135deg,var(--yellow),#f59e0b);color:#080c18}
@@ -879,8 +881,14 @@ async function loadGpuStatus(){
     const g=await api('/api/gpu');
     const e=el('gpuStatus');
     if(g.apple_silicon){
-      if(g.backend==='ollama'){e.innerHTML='&#63743; Metal (Ollama)';e.title='Apple Silicon via Ollama on host'}
-      else{e.innerHTML='&#63743; Metal';e.title=g.details||'Apple Silicon'+(g.memory_gb?' '+g.memory_gb+' GB':'')}
+      let label='&#63743; Metal';
+      if(g.gpu_usage!==undefined&&g.gpu_usage!==null){
+        label+=' '+(g.gpu_usage*100).toFixed(0)+'%';
+      }else if(g.backend==='ollama'){
+        label+=' (Ollama)';
+      }
+      if(g.backend==='ollama'){e.innerHTML=label;e.title='Apple Silicon via Ollama'+(g.gpu_name?' - '+g.gpu_name:'')}
+      else{e.innerHTML=label;e.title=g.details||'Apple Silicon'+(g.memory_gb?' '+g.memory_gb+' GB':'')}
     }else{e.innerHTML='&#x1F5A5; CPU';e.title='No GPU acceleration'}
   }catch(_){}
 }
@@ -922,15 +930,15 @@ async function refreshPapers(){
 
 // ── Graph Style Controls ──
 let GS={paperColor:'#60a5fa',lineageColor:'#2dd4bf',webColor:'#fb923c',conceptColor:'#c084fc',edgeColor:'#60a5fa',citeColor:'#34d399',paperSize:14,conceptSize:7};
-// Theme-aware edge: use accent blue in dark, deeper blue in light
+// Theme-aware edge: always override on load
 (function(){
   const isLight=document.body.classList.contains('light');
   try{
     const s=JSON.parse(localStorage.getItem('hive_graph_style'));
-    if(s){Object.assign(GS,s);GS.edgeColor=s.edgeColor}
+    if(s)Object.assign(GS,s);
   }catch(_){}
-  if(!localStorage.getItem('hive_graph_style')||!JSON.parse(localStorage.getItem('hive_graph_style')||'{}').edgeColor)
-    GS.edgeColor=isLight?'#3b82f6':'#60a5fa';
+  // Force theme-appropriate edge color (ignore saved value)
+  GS.edgeColor=isLight?'#3b82f6':'#60a5fa';
   const set=function(id,val){const e=document.getElementById(id);if(e)e.value=val};
   set('gcPaperSize',GS.paperSize);set('gcConceptSize',GS.conceptSize);
   const sv=function(id,val){const e=document.getElementById(id);if(e)e.textContent=val};
