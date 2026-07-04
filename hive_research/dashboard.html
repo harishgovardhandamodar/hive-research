@@ -484,7 +484,7 @@ select{cursor:pointer}
         </div>
       <!-- Vector visualization (hidden by default) -->
       <div id="vectorWrap" style="flex:1;position:relative;min-height:300px;display:none;border-radius:var(--radius);border:1px solid var(--border);overflow:hidden;background:var(--bg)">
-        <svg width="100%" height="100%"></svg>
+        <svg></svg>
         <div id="vectorEmpty" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;color:var(--text3);pointer-events:none;opacity:.6">
           <div style="font-size:32px;margin-bottom:8px">&#x1F4A1;</div>
           <div>No vectors computed yet.<br>Go to Similarity tab and click "Compute Vectors"</div>
@@ -984,13 +984,13 @@ let _vectorData=null;
 
 function switchGraphView(view){
   const isGraph=view==='graph';
-  el('graphWrap').style.display=isGraph?'':'none';
-  el('vectorWrap').style.display=isGraph?'none':'';
+  el('graphWrap').style.display=isGraph?'flex':'none';
+  el('vectorWrap').style.display=isGraph?'none':'flex';
   el('graphViewBtn').className='btn btn-sm'+(isGraph?'':' btn-outline');
   el('vectorsViewBtn').className='btn btn-sm'+(isGraph?' btn-outline':'');
   if(isGraph){el('graphViewBtn').style.background='var(--accent)';el('graphViewBtn').style.color='white'}
   else{el('vectorsViewBtn').style.background='var(--accent)';el('vectorsViewBtn').style.color='white'}
-  if(!isGraph)loadVectorView();
+  if(!isGraph)setTimeout(loadVectorView,50);
 }
 async function loadVectorView(){
   try{
@@ -1007,7 +1007,7 @@ function renderVectors(data){
   svg.selectAll('*').remove();
   const rect=wrap.getBoundingClientRect();
   const W=rect.width||800,H=Math.max(rect.height||400,300);
-  svg.attr('width',W).attr('height',H).attr('viewBox',[0,0,W,H]);
+  svg.attr('width',W).attr('height',H).attr('viewBox',`0 0 ${W} ${H}`);
   const margin=60;
   const xs=data.map(d=>d.x),ys=data.map(d=>d.y);
   const xMin=Math.min(...xs),xMax=Math.max(...xs),yMin=Math.min(...ys),yMax=Math.max(...ys);
@@ -1016,8 +1016,7 @@ function renderVectors(data){
   const yScale=d3.scaleLinear().domain([yMin-yPad,yMax+yPad]).range([H-margin,margin]);
   const tooltip=d3.select('#vectorTooltip');
   const container=svg.append('g');
-  const zoom=d3.zoom().scaleExtent([0.5,10]).on('zoom',(e)=>{container.attr('transform',e.transform)});
-  svg.call(zoom).on('dblclick.zoom',null);
+  svg.call(d3.zoom().scaleExtent([0.5,10]).on('zoom',(e)=>{container.attr('transform',e.transform)})).on('dblclick.zoom',null);
   // Axes (use style for CSS variable support in SVG)
   const xAxis=container.append('g').attr('transform',`translate(0,${H-margin})`).call(d3.axisBottom(xScale).ticks(5));
   xAxis.selectAll('text').style('fill','var(--text2)').style('font-size','9px');
