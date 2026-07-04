@@ -1015,20 +1015,28 @@ function renderVectors(data){
   const xScale=d3.scaleLinear().domain([xMin-xPad,xMax+xPad]).range([margin,W-margin]);
   const yScale=d3.scaleLinear().domain([yMin-yPad,yMax+yPad]).range([H-margin,margin]);
   const tooltip=d3.select('#vectorTooltip');
-  const zoom=d3.zoom().scaleExtent([0.5,10]).on('zoom',(e)=>{container.attr('transform',e.transform)});
   const container=svg.append('g');
+  const zoom=d3.zoom().scaleExtent([0.5,10]).on('zoom',(e)=>{container.attr('transform',e.transform)});
   svg.call(zoom).on('dblclick.zoom',null);
-  // Axes
-  container.append('g').attr('transform',`translate(0,${H-margin})`).call(d3.axisBottom(xScale).ticks(5)).attr('color','var(--text3)').attr('font-size','9px');
-  container.append('g').attr('transform',`translate(${margin},0)`).call(d3.axisLeft(yScale).ticks(5)).attr('color','var(--text3)').attr('font-size','9px');
+  // Axes (use style for CSS variable support in SVG)
+  const xAxis=container.append('g').attr('transform',`translate(0,${H-margin})`).call(d3.axisBottom(xScale).ticks(5));
+  xAxis.selectAll('text').style('fill','var(--text2)').style('font-size','9px');
+  xAxis.selectAll('line,path').style('stroke','var(--border)');
+  const yAxis=container.append('g').attr('transform',`translate(${margin},0)`).call(d3.axisLeft(yScale).ticks(5));
+  yAxis.selectAll('text').style('fill','var(--text2)').style('font-size','9px');
+  yAxis.selectAll('line,path').style('stroke','var(--border)');
   // Grid lines
-  container.append('g').attr('stroke','var(--border)').attr('stroke-opacity',.3).selectAll('line').data(xScale.ticks(5)).join('line').attr('x1',d=>xScale(d)).attr('x2',d=>xScale(d)).attr('y1',margin).attr('y2',H-margin);
-  container.append('g').attr('stroke','var(--border)').attr('stroke-opacity',.3).selectAll('line').data(yScale.ticks(5)).join('line').attr('y1',d=>yScale(d)).attr('y2',d=>yScale(d)).attr('x1',margin).attr('x2',W-margin);
+  container.append('g').selectAll('line').data(xScale.ticks(5)).join('line')
+    .attr('x1',d=>xScale(d)).attr('x2',d=>xScale(d)).attr('y1',margin).attr('y2',H-margin)
+    .style('stroke','var(--border)').style('stroke-opacity','.3');
+  container.append('g').selectAll('line').data(yScale.ticks(5)).join('line')
+    .attr('y1',d=>yScale(d)).attr('y2',d=>yScale(d)).attr('x1',margin).attr('x2',W-margin)
+    .style('stroke','var(--border)').style('stroke-opacity','.3');
   // Scatter dots
   const dots=container.append('g').selectAll('circle').data(data).join('circle')
     .attr('cx',d=>xScale(d.x)).attr('cy',d=>yScale(d.y)).attr('r',5)
-    .attr('fill','var(--accent)').attr('stroke','var(--accent2)').attr('stroke-width',1).attr('stroke-opacity',.6)
-    .attr('opacity',.85).style('cursor','pointer');
+    .style('fill','var(--accent)').style('stroke','var(--accent2)').style('stroke-width','1').style('stroke-opacity','.6')
+    .style('opacity','.85').style('cursor','pointer');
   dots.append('title').text(d=>d.label+(d.authors?'\n'+d.authors:''));
   dots.on('mouseenter',function(e,d){
     d3.select(this).attr('r',8).attr('stroke-width',2);
@@ -1041,7 +1049,7 @@ function renderVectors(data){
   // Labels
   container.append('g').selectAll('text').data(data).join('text')
     .attr('x',d=>xScale(d.x)+7).attr('y',d=>yScale(d.y)+2)
-    .text(d=>d.label.substring(0,20)).attr('font-size','8px').attr('fill','var(--text2)').attr('font-weight','500');
+    .text(d=>d.label.substring(0,20)).style('font-size','8px').style('fill','var(--text2)').style('font-weight','500');
 }
 
 function renderGraph(data){
