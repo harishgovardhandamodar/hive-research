@@ -1069,6 +1069,7 @@ function renderGraph(data){
     .attr('r',cs).attr('fill',GS.conceptColor).attr('stroke',GS.conceptColor).attr('stroke-width',1.5).attr('stroke-opacity',.8);
   const isLight=document.body.classList.contains('light');
   const labelFill=isLight?'#1e293b':'#e2e8f0';
+  node.append('rect').attr('x',12).attr('y',-7).attr('width',d=>Math.min(d.label?.length||1,25)*6+4).attr('height',14).attr('rx',3).attr('fill',isLight?'rgba(255,255,255,.85)':'rgba(8,12,24,.7)').attr('stroke','none');
   node.append('text').text(d=>d.label?.substring(0,25)).attr('font-size','10px').attr('dx',14).attr('dy',4).attr('fill',labelFill).attr('font-weight','500');
   node.on('click',function(e,d){showNodePreview(d);});
   node.on('mouseenter',function(e,d){
@@ -2231,6 +2232,7 @@ function renderPoolGraph(data){
   node.append('rect').attr('width',8).attr('height',8).attr('x',-4).attr('y',-4).attr('rx',2)
     .attr('fill',d=>poolTopicColor(d.topics)).attr('stroke',nodeStroke).attr('stroke-width',1);
   node.filter(d=>d.is_new).append('text').text('!').attr('x',-4).attr('y',-7).attr('font-size','8px').attr('fill','#fbbf24').attr('font-weight','700');
+  node.append('rect').attr('x',8).attr('y',-6).attr('width',d=>Math.min(d.label?.length||1,16)*5+4).attr('height',12).attr('rx',3).attr('fill',isLight?'rgba(255,255,255,.8)':'rgba(8,12,24,.7)').attr('stroke','none');
   node.append('text').text(d=>d.label?.substring(0,16)).attr('font-size','8px').attr('dx',10).attr('dy',3).attr('fill',labelColor).attr('font-weight','500');
   node.append('title').text(d=>d.label+(d.imported?' [Imported]':' [New]')+'\nTopics: '+(d.topics||[]).join(', '));
   sim.on('tick',()=>{link.attr('x1',d=>d.source.x).attr('y1',d=>d.source.y).attr('x2',d=>d.target.x).attr('y2',d=>d.target.y);node.attr('transform',d=>'translate('+d.x+','+d.y+')')});
