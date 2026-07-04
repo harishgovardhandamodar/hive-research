@@ -170,28 +170,45 @@ class WebIngester:
             except Exception as e:
                 logger.warning("Failed to download image %s: %s", img_url, e)
 
-        # Write vault note
-        if notes or saved_images:
-            note_lines = [
-                "---",
-                f"url: {url}",
-                f"title: \"{title}\"",
-                f"tags: [{', '.join(tags)}]",
-                "---",
-                "",
-            ]
-            if summary:
-                note_lines.extend(["## Summary", "", summary, ""])
-            if notes:
-                note_lines.extend(["## Notes", "", notes, ""])
-            if saved_images:
-                note_lines.extend(["", "## Figures", ""])
-                for img in saved_images:
-                    note_lines.extend([
-                        f"![{img['filename']}](figures/{img['filename']})",
-                        "",
-                    ])
-            (web_vault / "00_notes.md").write_text("\n".join(note_lines))
+        # Write full article content as markdown
+        article_lines = [
+            "---",
+            f"url: {url}",
+            f"title: \"{title}\"",
+            "---",
+            "",
+            f"# {title}",
+            "",
+            description,
+            "",
+            "---",
+            "",
+            body_text,
+        ]
+        (web_vault / "article.md").write_text("\n".join(article_lines))
+
+        # Write summary/notes with tags and figures
+        note_lines = [
+            "---",
+            f"url: {url}",
+            f"title: \"{title}\"",
+            f"tags: [{', '.join(tags)}]",
+            "---",
+            "",
+        ]
+        if summary:
+            note_lines.extend(["## Summary", "", summary, ""])
+        if notes:
+            note_lines.extend(["## Notes", "", notes, ""])
+        note_lines.extend(["", f"[Full article](article.md)", ""])
+        if saved_images:
+            note_lines.extend(["", "## Figures", ""])
+            for img in saved_images:
+                note_lines.extend([
+                    f"![{img['filename']}](figures/{img['filename']})",
+                    "",
+                ])
+        (web_vault / "00_notes.md").write_text("\n".join(note_lines))
 
         stored_images = "; ".join(img["url"] for img in saved_images) if saved_images else "; ".join(images)
         stored_links = "; ".join(l["url"] for l in links) if links else ""
