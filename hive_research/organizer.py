@@ -81,8 +81,8 @@ class Organizer:
     def query_rag(self, question: str) -> dict[str, Any]:
         return self.rag.answer(question)
 
-    def similarity(self) -> list[dict[str, Any]]:
-        return paper_similarity_matrix(self.kg)
+    def similarity(self, paper_ids: list[str] | None = None, algorithm: str = "combined") -> list[dict[str, Any]]:
+        return paper_similarity_matrix(self.kg, paper_ids=paper_ids, algorithm=algorithm)
 
     def stats(self) -> dict[str, Any]:
         return {

@@ -74,7 +74,11 @@ class RouteHandler(BaseHTTPRequestHandler):
         elif path == "/api/stats":
             _json_response(self, self.org.stats())
         elif path == "/api/similarity":
-            _json_response(self, self.org.similarity())
+            paper_ids = data.get("paper_ids", params.get("paper_ids", None))
+            algorithm = data.get("algorithm", params.get("algorithm", "combined"))
+            if isinstance(paper_ids, str):
+                paper_ids = [x.strip() for x in paper_ids.split(",") if x.strip()]
+            _json_response(self, self.org.similarity(paper_ids=paper_ids, algorithm=algorithm))
         elif path == "/api/papers":
             from .pipeline import _sanitize_id
             has_lineage = set()
@@ -447,6 +451,12 @@ info.textContent += ' | OK';
                 return
             result = self.org.web.ingest(url)
             _json_response(self, result)
+        elif path == "/api/similarity":
+            paper_ids = data.get("paper_ids", params.get("paper_ids", None))
+            algorithm = data.get("algorithm", params.get("algorithm", "combined"))
+            if isinstance(paper_ids, str):
+                paper_ids = [x.strip() for x in paper_ids.split(",") if x.strip()]
+            _json_response(self, self.org.similarity(paper_ids=paper_ids, algorithm=algorithm))
         elif path == "/api/refresh":
             model = data.get("model", params.get("model", None))
             result = self.org.refresh_papers(model=model)

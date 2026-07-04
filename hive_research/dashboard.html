@@ -611,11 +611,28 @@ select{cursor:pointer}
 
 <!-- ── Similarity Panel ── -->
 <div class="panel" id="panel-similarity">
-  <div class="panel-header"><h2>Similarity <span class="badge">Jaccard</span></h2></div>
+  <div class="panel-header"><h2>Similarity <span class="badge" id="simBadge">Compare</span></h2></div>
   <div class="panel-body" style="padding-top:8px">
-    <div class="btn-group" style="margin-bottom:8px">
+    <!-- Paper selector -->
+    <div class="card" style="flex-shrink:0">
+      <div class="card-header">Select Papers</div>
+      <div style="display:flex;gap:8px;margin-bottom:6px">
+        <input id="simPaperSearch" placeholder="Search papers to add..." oninput="filterSimPapers(this.value)" style="flex:1">
+      </div>
+      <div id="simPaperList" style="display:none;max-height:180px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--radius);margin-bottom:6px;background:var(--bg)"></div>
+      <div id="simSelectedPapers" style="display:flex;flex-wrap:wrap;gap:4px;min-height:28px;padding:4px 0"></div>
+    </div>
+    <!-- Controls -->
+    <div class="btn-group" style="flex-shrink:0">
+      <select id="simAlgorithm" style="width:auto;padding:8px 12px;font-size:12px">
+        <option value="combined">Combined (default)</option>
+        <option value="abstract">Abstract Jaccard</option>
+        <option value="author">Author Overlap</option>
+        <option value="concept">Concept Overlap</option>
+      </select>
       <button class="btn" onclick="loadSimilarity()">&#x2248; Compute</button>
-      <div style="display:none;gap:4px;margin-left:8px" id="simViewToggle">
+      <button class="btn btn-sm btn-outline" onclick="_simSelected=[];_simPaperIds=[];renderSimSelected();el('simResults').innerHTML=''" style="font-size:11px">&#x2716; Clear</button>
+      <div style="display:none;gap:4px;margin-left:auto" id="simViewToggle">
         <button class="btn btn-sm" onclick="switchSimView('list',this)" style="background:var(--accent);color:white">&#x2630; List</button>
         <button class="btn btn-sm btn-outline" onclick="switchSimView('matrix',this)">&#x25A6; Matrix</button>
       </div>
@@ -1627,16 +1644,55 @@ async function fetchLineage(aid){
 // ── Similarity ──
 let _simData=null;
 let _simView='list';
+let _simSelected=[];
+let _simPaperIds=new Set();
+let _simPaperCache=[];
+
+function filterSimPapers(q){
+  const list=el('simPaperList');
+  if(!q.trim()){list.style.display='none';list.innerHTML='';return}
+  const filtered=_simPaperCache.filter(p=>
+    !_simPaperIds.has(p.id)&&
+    (p.title.toLowerCase().includes(q.toLowerCase())||
+     p.authors.toLowerCase().includes(q.toLowerCase()))
+  ).slice(0,20);
+  if(!filtered.length){list.style.display='none';list.innerHTML='';return}
+  list.style.display='block';
+  list.innerHTML=filtered.map(p=>'<div onclick="addSimPaper(\''+esc(p.id)+'\',\''+esc(p.title.replace(/'/g,"\\'"))+'\');el(\'simPaperSearch\').value=\'\';filterSimPapers(\'\')" style="padding:6px 10px;cursor:pointer;font-size:12px;border-bottom:1px solid var(--border);transition:background .1s">'+
+    '<div style="font-weight:500;color:var(--text)">'+esc(p.title.substring(0,60))+'</div>'+
+    '<div style="font-size:10px;color:var(--text3)">'+esc(p.authors.substring(0,40))+' &middot; '+p.id+'</div></div>').join('');
+}
+function addSimPaper(id,title){
+  if(_simPaperIds.has(id))return;
+  _simSelected.push({id,title});
+  _simPaperIds.add(id);
+  renderSimSelected();
+  el('simPaperList').style.display='none';
+}
+function removeSimPaper(id){
+  _simSelected=_simSelected.filter(p=>p.id!==id);
+  _simPaperIds.delete(id);
+  renderSimSelected();
+}
+function renderSimSelected(){
+  const c=el('simSelectedPapers');
+  if(!_simSelected.length){c.innerHTML='<span style="font-size:11px;color:var(--text3)">Search and select papers above to compare</span>';return}
+  c.innerHTML=_simSelected.map(p=>'<span style="display:inline-flex;align-items:center;gap:4px;background:rgba(96,165,250,.12);color:var(--accent);padding:3px 8px;border-radius:6px;font-size:11px;border:1px solid rgba(96,165,250,.2)">'+
+    esc(p.title.substring(0,30))+
+    ' <span onclick="removeSimPaper(\''+esc(p.id)+'\')" style="cursor:pointer;opacity:.6;font-size:13px;line-height:1">&times;</span></span>').join('');
+}
 
 function renderSimList(){
   const c=el('simResults');
+  if(!_simData||!_simData.length){c.innerHTML='<div class="card" style="text-align:center;color:var(--text3)">No similarity data</div>';return}
   c.innerHTML='<table class="sim-table"><thead><tr><th>Paper A</th><th>Paper B</th><th>Similarity</th><th>Authors</th></tr></thead><tbody>'+
     _simData.map(s=>{const cls=s.score>.3?'high':s.score>.15?'med':'low';return '<tr><td>'+esc(s.source_title.substring(0,50))+'</td><td>'+esc(s.target_title.substring(0,50))+'</td><td><span class="sim-score '+cls+'">'+(s.score*100).toFixed(0)+'%</span></td><td style="font-size:11px;color:var(--text3)">'+(s.author_overlap*100).toFixed(0)+'% auth</td></tr>'}).join('')+
     '</tbody></table>';
 }
 
 function renderSimMatrix(){
-  // Collect unique papers
+  const c=el('simResults');
+  if(!_simData||!_simData.length){c.innerHTML='<div class="card" style="text-align:center;color:var(--text3)">No similarity data</div>';return}
   const paperMap={};
   _simData.forEach(s=>{
     paperMap[s.source]={id:s.source,title:s.source_title};
@@ -1645,25 +1701,21 @@ function renderSimMatrix(){
   const papers=Object.values(paperMap).sort((a,b)=>a.title.localeCompare(b.title));
   const idx={};
   papers.forEach((p,i)=>idx[p.id]=i);
-  // Build score matrix
   const matrix=Array.from({length:papers.length},()=>Array(papers.length).fill(0));
   _simData.forEach(s=>{
     const i=idx[s.source],j=idx[s.target];
     matrix[i][j]=matrix[j][i]=s.score;
   });
-  // Render as grid
   const cols=papers.length;
   const cellW=Math.max(Math.floor(780/cols),12);
   const cellH=cellW+4;
   const labelW=Math.min(140,Math.max(80,cellW*3));
   let html='<div style="overflow:auto;font-size:10px;line-height:1"><div style="display:inline-block;min-width:100%">';
-  // header row
   html+='<div style="display:flex"><div style="width:'+labelW+'px;flex-shrink:0;padding:2px 4px;font-weight:600;color:var(--text3)">Paper</div>';
   papers.forEach((p,i)=>{
     html+='<div style="width:'+cellW+'px;flex-shrink:0;text-align:center;padding:2px 0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;writing-mode:vertical-lr;transform:rotate(180deg);height:'+(cellW*3)+'px;font-size:9px;color:var(--text3)" title="'+esc(p.title)+'">'+esc(p.title.substring(0,20))+'</div>';
   });
   html+='</div>';
-  // data rows
   papers.forEach((p,i)=>{
     html+='<div style="display:flex;align-items:center">'+
       '<div style="width:'+labelW+'px;flex-shrink:0;padding:2px 4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:9px"><a href="#" onclick="event.preventDefault();selectPaper(\''+esc(p.id)+'\');switchPanel(\'browse\')" style="color:var(--accent);text-decoration:none">'+esc(p.title.substring(0,40))+'</a></div>';
@@ -1691,16 +1743,27 @@ function switchSimView(view,btn){
 }
 
 async function loadSimilarity(){
-  addLog('Computing similarity matrix...','INPROGRESS');
+  addLog('Computing similarity...','INPROGRESS');
   try{
-    _simData=await api('/api/similarity');
+    const algo=el('simAlgorithm').value;
+    const body={algorithm:algo};
+    if(_simSelected.length>1)body.paper_ids=_simSelected.map(p=>p.id);
+    _simData=await api('/api/similarity','POST',body);
     const c=el('simResults');
-    if(!_simData||_simData.length===0){c.innerHTML='<div class="card" style="text-align:center;color:var(--text3)">Need at least 2 papers for similarity analysis</div>';addLog('Need at least 2 papers','WARN');return}
+    if(!_simData||!_simData.length){c.innerHTML='<div class="card" style="text-align:center;color:var(--text3)">Need at least 2 papers for similarity analysis</div>';addLog('Need at least 2 papers','WARN');return}
     el('simViewToggle').style.display='inline-flex';
+    el('simBadge').textContent=(_simSelected.length>1?_simSelected.length+' papers':_simData.length+' pairs');
     switchSimView(_simView, document.querySelector('#simViewToggle button'));
-    addLog('Computed similarity for '+_simData.length+' pairs','DONE');
+    addLog('Computed similarity for '+_simData.length+' pairs using "'+algo+'"','DONE');
   }catch(e){addLog('Error: '+e,'ERROR')}
 }
+
+// Cache papers for the selector on load
+(async function initSimPapers(){
+  try{
+    _simPaperCache=await api('/api/papers');
+  }catch(_){}
+})();
 
 // ── RAG Chat ──
 async function askRag(){
