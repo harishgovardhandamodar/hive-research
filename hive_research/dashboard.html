@@ -153,6 +153,10 @@ textarea{resize:vertical;min-height:60px;font-family:inherit}
 .paper-row .info h4{font-size:12.5px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .paper-row .info .sub{font-size:11px;color:var(--text3)}
 .concept-tag{display:inline-flex;align-items:center;gap:4px;background:rgba(192,132,252,.12);color:var(--purple);padding:2px 8px;border-radius:4px;font-size:11px;margin:2px}
+.concept-ticker{overflow:hidden;position:relative;height:26px;mask-image:linear-gradient(90deg,transparent 0,#000 30px,#000 calc(100%-30px),transparent 100%);-webkit-mask-image:linear-gradient(90deg,transparent 0,#000 30px,#000 calc(100%-30px),transparent 100%)}
+.concept-ticker-track{display:inline-flex;gap:6px;align-items:center;white-space:nowrap;animation:ticker-scroll 40s linear infinite}
+.concept-ticker:hover .concept-ticker-track{animation-play-state:paused}
+@keyframes ticker-scroll{0%{transform:translateX(0)}100%{transform:translateX(-50%)}}
 .lineage-btn{flex-shrink:0;margin-left:auto;font-size:10px!important}
 .web-list-item{display:flex;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);gap:8px;cursor:pointer;transition:background .15s}
 .web-list-item:hover{background:var(--surface2);margin:0 -8px;padding:8px}
@@ -1009,12 +1013,14 @@ let _browsePapers=[];
 let _browseFileTree=[];
 let _selectedPaper=null;
 let _currentPreviewFile=null;
+let _allConcepts=[];
 
 async function loadBrowse(){
   try{
     _browsePapers=await api('/api/papers');
     const [concepts, fileTree]=await Promise.all([api('/api/concepts'), api('/api/browse')]);
     _browseFileTree=fileTree.tree||[];
+    _allConcepts=concepts||[];
     el('browseBadge').textContent=_browsePapers.length+' papers';
     renderPapers(_browsePapers);
     // Keep concepts accessible via header button
@@ -1026,6 +1032,13 @@ function _conceptsBtn(concepts){
   if(!concepts||!concepts.length)return'';
   const tags=concepts.map(c=>'<span class="concept-tag" title="'+esc(c.definition||'')+'">'+esc(c.label)+'</span>').join('');
   return '<div style="display:flex;flex-wrap:wrap;gap:4px;align-items:center"><span style="font-size:10px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.5px">Concepts</span> '+tags+' <span style="font-size:10px;color:var(--text3)">('+concepts.length+')</span></div>';
+}
+function _conceptsTicker(concepts){
+  if(!concepts||!concepts.length)return'';
+  const tags=concepts.map(c=>'<span class="concept-tag" title="'+esc(c.definition||'')+'">'+esc(c.label)+'</span>').join('');
+  // Duplicate for seamless scroll (CSS ticker scrolls -50%)
+  const inner='<span style="font-size:10px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-right:4px">Concepts</span> '+tags+' <span style="font-size:10px;color:var(--text3);margin-left:4px">('+concepts.length+')</span>';
+  return '<div class="concept-ticker" style="margin-top:4px"><div class="concept-ticker-track">'+inner+'&nbsp;&nbsp;&bull;&nbsp;&nbsp;'+inner+'</div></div>';
 }
 
 function renderPapers(papers){
@@ -1146,7 +1159,8 @@ function selectPaper(paperId){
   const hdr=el('browsePaperHeader');
   hdr.innerHTML='<div style="font-weight:600;font-size:13px;color:var(--accent);margin-bottom:2px">'+esc(p.title)+'</div>'+
     '<div style="font-size:11px;color:var(--text3)">'+esc(p.authors)+' &middot; '+p.id+' &middot; '+p.published+'</div>'+
-    (p.affiliations?'<div style="font-size:10px;color:var(--text3);margin-top:2px">'+esc(p.affiliations)+'</div>':'');
+    (p.affiliations?'<div style="font-size:10px;color:var(--text3);margin-top:2px">'+esc(p.affiliations)+'</div>':'')+
+    (_allConcepts.length?_conceptsTicker(_allConcepts):'');
   // find and render files grouped by type
   renderPaperFiles(p);
   // clear preview
