@@ -1442,7 +1442,7 @@ async function askRag(){
 async function loadAbout(){
   try{
     const [s,o,g]=await Promise.all([api('/api/stats'),api('/api/ollama'),api('/api/gpu')]);
-    el('sysInfo').html='Platform: '+o.platform+'<br>Processor: '+o.processor+'<br>Python: '+o.python;
+    el('sysInfo').innerHTML='Platform: '+o.platform+'<br>Processor: '+o.processor+'<br>Python: '+o.python;
     const oi=el('ollamaInfo');
     if(o.connected){oi.innerHTML='Status: <span style="color:var(--green)">Connected</span><br>Model: '+o.model+(o.model_available?' <span style="color:var(--green)">&#x2713;</span>':' <span style="color:var(--red)">not found</span>')+'<br>Fast: '+o.fast_model+(o.fast_available?' <span style="color:var(--green)">&#x2713;</span>':' <span style="color:var(--red)">not found</span>')+'<br>Embed: '+o.embed_model+(o.embed_available?' <span style="color:var(--green)">&#x2713;</span>':' <span style="color:var(--red)">not found</span>')}
     else{oi.innerHTML='Status: <span style="color:var(--red)">Disconnected</span> (tried '+o.base_url+')'}
