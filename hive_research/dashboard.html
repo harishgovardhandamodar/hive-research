@@ -405,7 +405,6 @@ textarea{resize:vertical;min-height:60px;font-family:inherit}
       </div>
       <div class="pool-subtabs">
         <div class="pool-subtab active" onclick="switchPoolTab('browse',this)">Browse</div>
-        <div class="pool-subtab" onclick="switchPoolTab('list',this)">List</div>
         <div class="pool-subtab" onclick="switchPoolTab('graph',this)">Graph</div>
         <div class="pool-subtab" onclick="switchPoolTab('topics',this)"><span style="font-size:14px">&#x2699;</span></div>
       </div>
@@ -416,7 +415,6 @@ textarea{resize:vertical;min-height:60px;font-family:inherit}
         <button class="btn btn-sm btn-success" onclick="importSelectedFromPool()" id="poolImportSelectedBtn" style="display:none;margin-left:8px">+ Add Selected</button>
       </div>
     </div>
-    <div id="poolList" style="flex:1;overflow-y:auto;display:none"></div>
     <div id="poolGraph" style="flex:1;overflow:hidden;display:none;flex-direction:column">
       <div id="poolGraphWrap"><svg></svg></div>
     </div>
@@ -1366,10 +1364,9 @@ function poolTopicColor(topics){if(!topics||!topics.length)return POOL_TOPIC_COL
 function switchPoolTab(tab,el_){
   document.querySelectorAll('.pool-subtab').forEach(t=>t.classList.remove('active'));
   el_.classList.add('active');
-  const ids={browse:'poolBrowse',list:'poolList',graph:'poolGraph',topics:'poolTopics'};
+  const ids={browse:'poolBrowse',graph:'poolGraph',topics:'poolTopics'};
   Object.entries(ids).forEach(([k,v])=>{el(v).style.display=k===tab?'flex':'none'});
   if(tab==='graph')loadPoolGraph();
-  if(tab==='list')loadPoolList();
   if(tab==='topics')loadPoolTopics();
 }
 
