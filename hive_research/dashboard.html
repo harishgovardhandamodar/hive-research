@@ -1071,7 +1071,10 @@ function renderGraph(data){
   const labelFill=isLight?'#1e293b':'#e2e8f0';
   node.append('rect').attr('x',12).attr('y',-7).attr('width',d=>Math.min(d.label?.length||1,25)*6+4).attr('height',14).attr('rx',3).attr('fill',isLight?'rgba(255,255,255,.85)':'rgba(8,12,24,.7)').attr('stroke','none');
   node.append('text').text(d=>d.label?.substring(0,25)).attr('font-size','10px').attr('dx',14).attr('dy',4).attr('fill',labelFill).attr('font-weight','500');
-  node.on('click',function(e,d){showNodePreview(d);});
+  node.on('click',function(e,d){
+    if(d.type==='web'){switchPanel('browse');setTimeout(()=>openInBrowse(d.id,'note'),100)}
+    else showNodePreview(d);
+  });
   node.on('mouseenter',function(e,d){
     let tip = '<b>'+esc(d.label)+'</b>'+(d.type?' <span style="color:'+labelFill+'">('+d.type+')</span>':'');
     if(d.abstract) tip += '<br>'+esc(d.abstract.substring(0,250));
@@ -1472,14 +1475,28 @@ function renderLineage(paperId){
 
 function openInBrowse(paperId, type){
   switchPanel('browse');
-  // Wait for browse to load if needed, then select and open file
   const doOpen=()=>{
-    selectPaper(paperId);
+    const p=_browsePapers.find(x=>x.id===paperId);
+    if(p)selectPaper(paperId);
     if(type==='note'){
-      // Find the note file from browse file tree
-      const p=_browsePapers.find(x=>x.id===paperId);
+      let dirName=null;
       if(p&&p.note_dir){
-        const dirName=p.note_dir.split('/').pop();
+        dirName=p.note_dir.split('/').pop();
+      }else{
+        // For web articles or other non-paper nodes, find by matching
+        // the paperId (which may be like web_<sanitized_title>)
+        const suffix=paperId.replace(/^web_/,'');
+        _browseFileTree.forEach(entry=>{
+          if(entry.name==='Notes'){
+            (entry.files||[]).forEach(sub=>{
+              if(sub.name.includes(suffix)||suffix.includes(sub.name)){
+                dirName=sub.name;
+              }
+            });
+          }
+        });
+      }
+      if(dirName){
         _browseFileTree.forEach(entry=>{
           if(entry.name==='Notes'){
             (entry.files||[]).forEach(sub=>{

@@ -91,21 +91,22 @@ class RouteHandler(BaseHTTPRequestHandler):
                     has_lineage.add(e.source)
             papers = []
             vault_dir = self.org.config.vault_dir
-            for n in self.org.kg.papers:
+            all_nodes = list(self.org.kg.papers) + [n for n in self.org.kg._hive.nodes if n.type == "web"]
+            for n in all_nodes:
                 safe = _sanitize_id(n.label) or n.id
-                # Check new directory structure first
                 notes_file = Path(vault_dir) / safe / "00_notes.md"
                 if notes_file.exists():
                     note_path = str(notes_file)
                     note_dir = str(Path(vault_dir) / safe)
                 else:
-                    # Fallback to old flat file
                     legacy = Path(vault_dir) / f"{safe}.md"
                     note_path = str(legacy) if legacy.exists() else ""
                     note_dir = note_path
                 papers.append({
-                    "id": n.id, "title": n.label, "authors": n.authors,
-                    "published": n.published, "affiliations": n.affiliations,
+                    "id": n.id, "title": n.label,
+                    "authors": getattr(n, "authors", ""),
+                    "published": getattr(n, "published", ""),
+                    "affiliations": getattr(n, "affiliations", ""),
                     "note_path": note_path,
                     "note_dir": note_dir if Path(note_dir).exists() else "",
                     "has_lineage": n.id in has_lineage,
