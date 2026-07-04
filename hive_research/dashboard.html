@@ -866,6 +866,7 @@ function switchPanel(name){
   if(name==='pool')loadPoolPanel();
   if(name==='import'){document.getElementById('webUrlInput').focus();loadWebList();}
   if(name==='about')loadAbout();
+  if(name==='similarity')checkVecStatus();
 }
 
 // ── GPU Status ──
@@ -1154,7 +1155,7 @@ function showNodePreview(d){
       }).filter(Boolean);
       if(concepts.length){
         // Group by relation type
-        const byRel:{[key:string]:string[]}={};
+        const byRel={};
         conceptLinks.forEach(l=>{
           const rel=l.relation||'related';
           if(!byRel[rel])byRel[rel]=[];
@@ -1934,14 +1935,8 @@ async function checkVecStatus(){
     }
   }catch(_){}
 }
-// Check on init and when similarity panel opens
-checkVecStatus();
-// Also check when panel is switched to similarity (patched into switchPanel)
-const _origSwitch=window.switchPanel;
-window.switchPanel=function(name){
-  _origSwitch(name);
-  if(name==='similarity')checkVecStatus();
-};
+// Check when similarity panel opens (called from switchPanel)
+// Not on init to avoid JS errors if panel elements aren't ready
 
 // ── RAG Chat ──
 async function askRag(){
