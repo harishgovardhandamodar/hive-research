@@ -438,9 +438,13 @@ textarea{resize:vertical;min-height:60px;font-family:inherit}
   <div class="panel-header"><h2>Similarity <span class="badge">Jaccard</span></h2></div>
   <div class="panel-body" style="padding-top:8px">
     <div class="btn-group" style="margin-bottom:8px">
-      <button class="btn" onclick="loadSimilarity()">&#x2248; Compute Paper Similarity</button>
+      <button class="btn" onclick="loadSimilarity()">&#x2248; Compute</button>
+      <div style="display:none;gap:4px;margin-left:8px" id="simViewToggle">
+        <button class="btn btn-sm" onclick="switchSimView('list',this)" style="background:var(--accent);color:white">&#x2630; List</button>
+        <button class="btn btn-sm btn-outline" onclick="switchSimView('matrix',this)">&#x25A6; Matrix</button>
+      </div>
     </div>
-    <div id="simResults"></div>
+    <div id="simResults" style="flex:1;overflow-y:auto"></div>
   </div>
 </div>
 
@@ -1337,16 +1341,80 @@ async function fetchLineage(aid){
 }
 
 // ── Similarity ──
+let _simData=null;
+let _simView='list';
+
+function renderSimList(){
+  const c=el('simResults');
+  c.innerHTML='<table class="sim-table"><thead><tr><th>Paper A</th><th>Paper B</th><th>Similarity</th><th>Authors</th></tr></thead><tbody>'+
+    _simData.map(s=>{const cls=s.score>.3?'high':s.score>.15?'med':'low';return '<tr><td>'+esc(s.source_title.substring(0,50))+'</td><td>'+esc(s.target_title.substring(0,50))+'</td><td><span class="sim-score '+cls+'">'+(s.score*100).toFixed(0)+'%</span></td><td style="font-size:11px;color:var(--text3)">'+(s.author_overlap*100).toFixed(0)+'% auth</td></tr>'}).join('')+
+    '</tbody></table>';
+}
+
+function renderSimMatrix(){
+  // Collect unique papers
+  const paperMap={};
+  _simData.forEach(s=>{
+    paperMap[s.source]={id:s.source,title:s.source_title};
+    paperMap[s.target]={id:s.target,title:s.target_title};
+  });
+  const papers=Object.values(paperMap).sort((a,b)=>a.title.localeCompare(b.title));
+  const idx={};
+  papers.forEach((p,i)=>idx[p.id]=i);
+  // Build score matrix
+  const matrix=Array.from({length:papers.length},()=>Array(papers.length).fill(0));
+  _simData.forEach(s=>{
+    const i=idx[s.source],j=idx[s.target];
+    matrix[i][j]=matrix[j][i]=s.score;
+  });
+  // Render as grid
+  const cols=papers.length;
+  const cellW=Math.max(Math.floor(780/cols),12);
+  const cellH=cellW+4;
+  const labelW=Math.min(140,Math.max(80,cellW*3));
+  let html='<div style="overflow:auto;font-size:10px;line-height:1"><div style="display:inline-block;min-width:100%">';
+  // header row
+  html+='<div style="display:flex"><div style="width:'+labelW+'px;flex-shrink:0;padding:2px 4px;font-weight:600;color:var(--text3)">Paper</div>';
+  papers.forEach((p,i)=>{
+    html+='<div style="width:'+cellW+'px;flex-shrink:0;text-align:center;padding:2px 0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;writing-mode:vertical-lr;transform:rotate(180deg);height:'+(cellW*3)+'px;font-size:9px;color:var(--text3)" title="'+esc(p.title)+'">'+esc(p.title.substring(0,20))+'</div>';
+  });
+  html+='</div>';
+  // data rows
+  papers.forEach((p,i)=>{
+    html+='<div style="display:flex;align-items:center">'+
+      '<div style="width:'+labelW+'px;flex-shrink:0;padding:2px 4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:9px"><a href="#" onclick="event.preventDefault();selectPaper(\''+esc(p.id)+'\');switchPanel(\'browse\')" style="color:var(--accent);text-decoration:none">'+esc(p.title.substring(0,40))+'</a></div>';
+    for(let j=0;j<cols;j++){
+      const score=i===j?1:Math.max(matrix[i][j]||0,matrix[j][i]||0);
+      const r=Math.round(200-200*score);
+      const g=Math.round(100+155*score);
+      const b=Math.round(100+155*score);
+      const bg=i===j?'var(--surface2)':'rgb('+r+','+g+','+b+')';
+      const txt=i===j?'':' <span style="font-weight:600">'+(score*100).toFixed(0)+'</span>';
+      html+='<div style="width:'+cellW+'px;height:'+cellH+'px;flex-shrink:0;display:flex;align-items:center;justify-content:center;background:'+bg+';border:1px solid var(--border);font-size:9px;color:'+(score>.5?'white':'var(--text2)')+'" title="'+esc(p.title)+' vs '+esc(papers[j].title)+': '+(score*100).toFixed(0)+'%">'+(score>0.05?txt:'')+'</div>';
+    }
+    html+='</div>';
+  });
+  html+='</div></div>';
+  el('simResults').innerHTML=html;
+}
+
+function switchSimView(view,btn){
+  _simView=view;
+  document.querySelectorAll('#simViewToggle button').forEach(b=>{b.style.background='transparent';b.style.color='var(--text)';b.className='btn btn-sm btn-outline'});
+  if(btn){btn.style.background='var(--accent)';btn.style.color='white';btn.className='btn btn-sm'}
+  if(view==='list')renderSimList();
+  else renderSimMatrix();
+}
+
 async function loadSimilarity(){
   addLog('Computing similarity matrix...','INPROGRESS');
   try{
-    const sim=await api('/api/similarity');
+    _simData=await api('/api/similarity');
     const c=el('simResults');
-    if(!sim||sim.length===0){c.innerHTML='<div class="card" style="text-align:center;color:var(--text3)">Need at least 2 papers for similarity analysis</div>';addLog('Need at least 2 papers','WARN');return}
-    c.innerHTML='<table class="sim-table"><thead><tr><th>Paper A</th><th>Paper B</th><th>Similarity</th><th>Authors</th></tr></thead><tbody>'+
-      sim.map(s=>{const cls=s.score>.3?'high':s.score>.15?'med':'low';return '<tr><td>'+esc(s.source_title.substring(0,40))+'</td><td>'+esc(s.target_title.substring(0,40))+'</td><td><span class="sim-score '+cls+'">'+(s.score*100).toFixed(0)+'%</span></td><td style="font-size:11px;color:var(--text3)">'+(s.author_overlap*100).toFixed(0)+'% auth</td></tr>'}).join('')+
-      '</tbody></table>';
-    addLog('Computed similarity for '+sim.length+' pairs','DONE');
+    if(!_simData||_simData.length===0){c.innerHTML='<div class="card" style="text-align:center;color:var(--text3)">Need at least 2 papers for similarity analysis</div>';addLog('Need at least 2 papers','WARN');return}
+    el('simViewToggle').style.display='inline-flex';
+    switchSimView(_simView, document.querySelector('#simViewToggle button'));
+    addLog('Computed similarity for '+_simData.length+' pairs','DONE');
   }catch(e){addLog('Error: '+e,'ERROR')}
 }
 
