@@ -52,6 +52,77 @@ def extract_referenced_arxiv_ids(text: str) -> list[str]:
     return list(set(ARXIV_REF_PATTERN.findall(text)))
 
 
+def _extract_caption(page: Any, image_rects: list[Any]) -> str:
+    """Find the caption text near an image on a PDF page."""
+    if not image_rects:
+        return ""
+    rect = image_rects[0]
+    img_y1 = getattr(rect, 'y1', rect[3] if isinstance(rect, (list, tuple)) else 0)
+    img_x0 = getattr(rect, 'x0', rect[0] if isinstance(rect, (list, tuple)) else 0)
+    img_x1 = getattr(rect, 'x1', rect[2] if isinstance(rect, (list, tuple)) else 0)
+    blocks = page.get_text("blocks")
+    candidates = []
+    for b in blocks:
+        if len(b) < 5:
+            continue
+        bx0, by0, bx1, by1 = b[0], b[1], b[2], b[3]
+        text = b[4].decode() if isinstance(b[4], bytes) else str(b[4])
+        text = text.strip()
+        if not text or len(text) < 5:
+            continue
+        # Look for text below the image (within 150px) with x-overlap
+        if by0 > img_y1 and by0 - img_y1 < 150:
+            if bx1 > img_x0 and bx0 < img_x1:
+                candidates.append((by0 - img_y1, text))
+        # Also look for text just above the image
+        if img_y1 - by1 < 50 and img_y1 > by1:
+            if bx1 > img_x0 and bx0 < img_x1:
+                candidates.append((img_y1 - by1, text))
+    candidates.sort(key=lambda x: x[0])
+    for _, text in candidates:
+        stripped = text.strip()
+        if re.search(r'^(Fig(ure)?|Table|Algorithm|Algo\.)\s*\.?\s*\d', stripped, re.IGNORECASE):
+            return stripped[:200]
+    if candidates:
+        return candidates[0][1][:200]
+    return ""
+
+
+def extract_images_from_pdf(pdf_path: str | Path, output_dir: str | Path) -> list[dict[str, Any]]:
+    import fitz
+    doc = fitz.open(str(pdf_path))
+    images = []
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    for page_num, page in enumerate(doc):
+        image_list = page.get_images(full=True)
+        for img_idx, img in enumerate(image_list):
+            xref = img[0]
+            base_image = doc.extract_image(xref)
+            img_bytes = base_image["image"]
+            w, h = base_image["width"], base_image["height"]
+            if w < 100 or h < 100 or len(img_bytes) < 2048:
+                continue
+            ext = base_image["ext"]
+            fname = f"figure_p{page_num+1:02d}_{img_idx+1:02d}.{ext}"
+            path = output_dir / fname
+            image_rects = page.get_image_rects(xref)
+            caption = _extract_caption(page, image_rects)
+            with open(path, "wb") as f:
+                f.write(img_bytes)
+            images.append({
+                "filename": fname,
+                "page": page_num + 1,
+                "path": str(path),
+                "ext": ext,
+                "width": w,
+                "height": h,
+                "caption": caption,
+            })
+    doc.close()
+    return images
+
+
 def extract_sections(text: str) -> list[dict[str, Any]]:
     lines = text.split("\n")
     sections: list[dict[str, Any]] = []

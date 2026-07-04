@@ -10,13 +10,13 @@ from .arxiv_fetcher import PaperInfo, download_pdf, fetch_by_id
 from .config import Config
 from .graph import KnowledgeGraph
 from .llm import LLMInterface
-from .parser import extract_referenced_arxiv_ids, extract_sections, extract_text
+from .parser import extract_images_from_pdf, extract_referenced_arxiv_ids, extract_sections, extract_text
 
 logger = logging.getLogger(__name__)
 
 
 def _sanitize_id(label: str) -> str:
-    return re.sub(r"[^a-z0-9]+", "_", label.lower()).strip("_")[:60]
+    return re.sub(r"[^a-z0-9]+", "_", label.lower()).strip("_")[:60].strip("_")
 
 
 class PaperPipeline:
@@ -48,13 +48,17 @@ class PaperPipeline:
 
         pdf_text = ""
         pdf_path = None
+        figures = []
         if self.config.arxiv_download_pdf:
             pdf_path = download_pdf(paper_id, self.config.papers_dir)
             if pdf_path and pdf_path.exists():
                 pdf_text = extract_text(pdf_path)
+                safe_title = _sanitize_id(paper.title) or paper_id
+                figures_dir = Path(self.config.vault_dir) / safe_title / "figures"
+                figures = extract_images_from_pdf(pdf_path, figures_dir)
         text_for_analysis = pdf_text or paper.abstract
 
-        analysis = self._analyze_text(text_for_analysis, paper.title)
+        analysis = self._analyze_text(text_for_analysis, paper.title, figures=figures)
 
         concepts = analysis.get("concepts", [])
         relations = analysis.get("relations", [])
@@ -63,6 +67,8 @@ class PaperPipeline:
         notes = analysis.get("notes", "")
         experiment = analysis.get("experiment", {})
         results = analysis.get("results", {})
+        experiments_list = analysis.get("experiments", [])
+        lineage_notes = analysis.get("lineage_notes", "")
 
         import json as _json
         extra = _json.dumps({"notes": notes, "experiment": experiment, "results": results})
@@ -109,7 +115,19 @@ class PaperPipeline:
                 if src and tgt:
                     self.kg.add_edge(src, tgt, rel)
 
-        note_path = self._write_note(paper_id, paper, summary, tags, concepts, notes, experiment, results)
+        # Fetch lineage before writing notes so we can include it
+        lineage_refs = []
+        if pdf_text:
+            lineage_refs = self.fetch_lineage(paper_id, pdf_text)
+            if lineage_refs:
+                logger.info("Lineage: %d prior papers linked for %s", len(lineage_refs), paper_id)
+
+        note_path = self._write_notes_multi(
+            paper_id, paper, summary, tags, concepts,
+            notes=notes, experiment=experiment, results=results,
+            experiments_list=experiments_list, lineage_notes=lineage_notes,
+            figures=figures,
+        )
         self.kg.save()
 
         result = {
@@ -120,15 +138,13 @@ class PaperPipeline:
             "relations": len(relations),
             "note_path": str(note_path) if note_path else None,
             "has_notes": bool(notes),
-            "has_experiment": bool(experiment and isinstance(experiment, dict) and any(v for v in experiment.values())),
+            "has_experiment": bool(experiments_list),
             "has_results": bool(results and isinstance(results, dict) and any(v for v in results.values())),
+            "figures": len(figures),
         }
 
-        if pdf_text:
-            refs = self.fetch_lineage(paper_id, pdf_text)
-            if refs:
-                result["lineage"] = refs
-                logger.info("Lineage: %d prior papers linked for %s", len(refs), paper_id)
+        if lineage_refs:
+            result["lineage"] = lineage_refs
 
         return result
 
@@ -176,12 +192,25 @@ class PaperPipeline:
                 return n.id
         return sid or fallback
 
+    def _build_figure_context(self, figures: list[dict[str, Any]]) -> str:
+        if not figures:
+            return ""
+        by_page: dict[int, list[str]] = {}
+        for f in figures:
+            by_page.setdefault(f["page"], []).append(f["filename"])
+        lines = ["\nFigures available in the PDF (reference them using [FIGURE:page=N]):"]
+        for p in sorted(by_page):
+            lines.append(f"  Page {p}: {', '.join(by_page[p])}")
+        lines.append("")
+        return "\n".join(lines)
+
     def _analyze_text(
         self,
         text: str,
         title: str,
+        figures: list[dict[str, Any]] | None = None,
     ) -> dict[str, Any]:
-        max_chars = 8000
+        max_chars = 12000
         truncated = text[:max_chars]
 
         fast_prompt = (
@@ -195,16 +224,33 @@ class PaperPipeline:
         )
         tags = tags_result.get("tags", [])
 
+        figure_context = self._build_figure_context(figures or [])
+
         main_prompt = (
             f"Title: {title}\n\n"
+            f"{figure_context}"
             f"{truncated}\n\n"
-            "Extract the following as JSON. Do NOT include markdown formatting.\n"
+            "Return ONLY valid JSON with these fields:\n"
             "{\n"
-            '  "summary": "2-3 sentence summary",\n'
-            '  "notes": "3-5 key technical insights or observations",\n'
+            '  "summary": "2-3 sentence summary covering problem, approach, and key results (include numbers)",\n'
+            '  "notes": "Detailed explanation of the method, architecture, experiments, and results with specific details numbers",\n'
+            '  "experiments": [\n'
+            '    {\n'
+            '      "name": "Experiment name",\n'
+            '      "goal": "What this tests",\n'
+            '      "methodology": "Method used",\n'
+            '      "dataset": "Dataset name",\n'
+            '      "setup": "Hyperparameters, dimensions",\n'
+            '      "baselines": "Methods compared against",\n'
+            '      "metrics": {"metric_name": "value"},\n'
+            '      "results": "Key results with numbers",\n'
+            '      "findings": "Key takeaways"\n'
+            '    }\n'
+            '  ],\n'
             '  "experiment": {"methodology": "...", "dataset": "...", "setup": "..."},\n'
             '  "results": {"main_findings": "...", "metrics": {"metric_name": "value"}},\n'
-            '  "concepts": [{"name": "...", "definition": "...", "relation": "introduces|uses|proposes|related_to"}],\n'
+            '  "lineage_notes": "Prior work this builds on and how it differs",\n'
+            '  "concepts": [{"name": "...", "definition": "...", "relation": "type"}],\n'
             '  "relations": [{"source": "...", "target": "...", "relation": "..."}]\n'
             "}"
         )
@@ -212,7 +258,33 @@ class PaperPipeline:
         analysis["tags"] = tags
         return analysis
 
-    def _write_note(
+    def _embed_figures(
+        self,
+        markdown_text: str,
+        figures: list[dict[str, Any]],
+        relative_prefix: str = "figures/",
+    ) -> str:
+        if not figures:
+            return markdown_text
+        page_figures: dict[int, list[dict[str, Any]]] = {}
+        for f in figures:
+            page_figures.setdefault(f["page"], []).append(f)
+
+        def _replace(match):
+            page = int(match.group(1))
+            fs = page_figures.get(page, [])
+            if not fs:
+                return match.group(0)
+            links = "\n".join(
+                f"![{f.get('caption', '').strip() or 'Figure from page ' + str(page)}]({relative_prefix}{f['filename']})"
+                for f in fs
+            )
+            return links
+
+        import re
+        return re.sub(r"\[FIGURE:page=(\d+)\]", _replace, markdown_text)
+
+    def _write_notes_multi(
         self,
         paper_id: str,
         paper: PaperInfo,
@@ -222,12 +294,24 @@ class PaperPipeline:
         notes: str = "",
         experiment: dict[str, Any] | None = None,
         results: dict[str, Any] | None = None,
+        experiments_list: list[dict[str, Any]] | None = None,
+        lineage_notes: str = "",
+        figures: list[dict[str, Any]] | None = None,
+        safe_title: str | None = None,
     ) -> Path | None:
         vault = Path(self.config.vault_dir)
         vault.mkdir(parents=True, exist_ok=True)
-        safe_title = _sanitize_id(paper.title) or paper_id
-        path = vault / f"{safe_title}.md"
-        lines = [
+        safe_title = safe_title or _sanitize_id(paper.title) or paper_id
+        paper_dir = vault / safe_title
+        paper_dir.mkdir(parents=True, exist_ok=True)
+
+        figures = figures or []
+        figures_dir = paper_dir / "figures"
+        if figures:
+            figures_dir.mkdir(parents=True, exist_ok=True)
+
+        # ── 00_notes.md ──
+        note_lines: list[str] = [
             "---",
             f"arxiv_id: {paper_id}",
             f"title: \"{paper.title}\"",
@@ -237,28 +321,19 @@ class PaperPipeline:
             "---",
             "",
         ]
+
         if summary:
-            lines.extend(["## Summary", "", summary, ""])
+            note_lines.extend(["## Summary", "", summary, ""])
+
         if notes:
-            lines.extend(["## Notes", "", notes, ""])
-        if experiment and isinstance(experiment, dict):
-            exp = {}
-            for k, v in experiment.items():
-                if v is None or v == "":
-                    continue
-                if isinstance(v, list):
-                    exp[k] = ", ".join(str(x) for x in v)
-                elif isinstance(v, dict):
-                    exp[k] = "; ".join(f"{sk}: {sv}" for sk, sv in v.items() if sv)
-                else:
-                    exp[k] = str(v)
-            if exp:
-                lines.extend(["## Experiment", ""])
-                for k, v in exp.items():
-                    lines.append(f"- **{k.capitalize()}**: {v}")
-                lines.append("")
+            embedded_notes = self._embed_figures(notes, figures, relative_prefix="figures/")
+            note_lines.extend(["## Notes", "", embedded_notes, ""])
+
+        if lineage_notes:
+            note_lines.extend(["## Prior Work / Research Lineage", "", lineage_notes, ""])
+
         if results and isinstance(results, dict):
-            res_parts = []
+            res_parts: list[str] = []
             mf = results.get("main_findings")
             if mf:
                 if isinstance(mf, list):
@@ -277,24 +352,83 @@ class PaperPipeline:
                 if m_items:
                     res_parts.append("Metrics: " + " | ".join(m_items))
             if res_parts:
-                lines.extend(["## Results", ""])
+                note_lines.extend(["## Results", ""])
                 for part in res_parts:
-                    lines.append(part)
-                lines.append("")
+                    note_lines.append(part)
+                note_lines.append("")
+
         if concepts:
-            lines.extend(["## Concepts", ""])
+            note_lines.extend(["## Concepts", ""])
             for c in concepts:
                 name = c.get("name", c.get("label", ""))
                 rel = c.get("relation", "")
-                lines.append(f"- **{name}** ({rel})")
-            lines.append("")
-        lines.extend(["## Links", "", f"- [arXiv](https://arxiv.org/abs/{paper_id})"])
+                note_lines.append(f"- **{name}** ({rel})")
+            note_lines.append("")
+
+        note_lines.extend(["## Links", "", f"- [arXiv](https://arxiv.org/abs/{paper_id})"])
         if any(c.get("definition") for c in concepts):
-            lines.extend(["", "## Definitions", ""])
+            note_lines.extend(["", "## Definitions", ""])
             for c in concepts:
                 if c.get("definition"):
-                    lines.append(f"- **{c.get('name', c.get('label', ''))}**: {c['definition']}")
-        safe_lines = [str(item) if not isinstance(item, str) else item for item in lines]
-        with open(path, "w") as f:
+                    note_lines.append(f"- **{c.get('name', c.get('label', ''))}**: {c['definition']}")
+
+        if figures:
+            note_lines.extend(["", "## Figures", ""])
+            for f in figures:
+                cap = f.get("caption", "").strip()
+                label = cap if cap else f['filename']
+                note_lines.extend([
+                    f"- **Page {f['page']}**: {label}",
+                    "",
+                    f"![{label}](figures/{f['filename']})",
+                    "",
+                ])
+
+        safe_lines = [str(item) if not isinstance(item, str) else item for item in note_lines]
+        notes_path = paper_dir / "00_notes.md"
+        with open(notes_path, "w") as f:
             f.write("\n".join(safe_lines))
-        return path
+
+        # ── Per-experiment note files ──
+        if experiments_list:
+            for exp in experiments_list:
+                if not isinstance(exp, dict):
+                    continue
+                exp_name = exp.get("name", "").strip()
+                if not exp_name:
+                    continue
+                safe_exp = _sanitize_id(exp_name) or "experiment"
+                exp_lines: list[str] = [
+                    "---",
+                    f"arxiv_id: {paper_id}",
+                    f"experiment: \"{exp_name}\"",
+                    "---",
+                    "",
+                    f"# {exp_name}",
+                    "",
+                ]
+                for key in ("goal", "methodology", "dataset", "setup", "baselines"):
+                    val = exp.get(key, "")
+                    if val:
+                        exp_lines.extend([f"## {key.capitalize()}", "", str(val), ""])
+                metrics = exp.get("metrics", {})
+                if metrics and isinstance(metrics, dict):
+                    exp_lines.extend(["## Metrics", ""])
+                    for mk, mv in metrics.items():
+                        if mv is None or mv == "":
+                            continue
+                        exp_lines.append(f"- **{mk}**: {mv}")
+                    exp_lines.append("")
+                results_text = exp.get("results", "")
+                if results_text:
+                    exp_lines.extend(["## Results", "", str(results_text), ""])
+                findings = exp.get("findings", "")
+                if findings:
+                    exp_lines.extend(["## Key Findings", "", str(findings), ""])
+
+                safe_exp_lines = [str(item) if not isinstance(item, str) else item for item in exp_lines]
+                exp_path = paper_dir / f"{safe_exp}-00-experiment.md"
+                with open(exp_path, "w") as f:
+                    f.write("\n".join(safe_exp_lines))
+
+        return notes_path

@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import platform
 import re
+import urllib.parse
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from pathlib import Path
 from typing import Any
@@ -58,7 +60,7 @@ class RouteHandler(BaseHTTPRequestHandler):
             for kv in parts[1].split("&"):
                 if "=" in kv:
                     k, v = kv.split("=", 1)
-                    params[k] = v
+                    params[k] = urllib.parse.unquote(v)
         return path, params
 
     def do_GET(self) -> None:
@@ -80,14 +82,24 @@ class RouteHandler(BaseHTTPRequestHandler):
                 if e.relation == "cites":
                     has_lineage.add(e.source)
             papers = []
+            vault_dir = self.org.config.vault_dir
             for n in self.org.kg.papers:
                 safe = _sanitize_id(n.label) or n.id
-                note_file = Path(self.org.config.vault_dir) / f"{safe}.md"
-                note_path = str(note_file) if note_file.exists() else ""
+                # Check new directory structure first
+                notes_file = Path(vault_dir) / safe / "00_notes.md"
+                if notes_file.exists():
+                    note_path = str(notes_file)
+                    note_dir = str(Path(vault_dir) / safe)
+                else:
+                    # Fallback to old flat file
+                    legacy = Path(vault_dir) / f"{safe}.md"
+                    note_path = str(legacy) if legacy.exists() else ""
+                    note_dir = note_path
                 papers.append({
                     "id": n.id, "title": n.label, "authors": n.authors,
                     "published": n.published, "affiliations": n.affiliations,
                     "note_path": note_path,
+                    "note_dir": note_dir if Path(note_dir).exists() else "",
                     "has_lineage": n.id in has_lineage,
                     "has_extra": bool(n.definition and n.definition.startswith("{")),
                 })
@@ -106,13 +118,137 @@ class RouteHandler(BaseHTTPRequestHandler):
                 for n in self.org.kg.concepts
             ]
             _json_response(self, concepts)
+        elif path == "/api/browse":
+            papers_dir = str(self.org.config.papers_dir)
+            vault_dir = str(self.org.config.vault_dir)
+            tree = []
+            def _scan(dirpath):
+                entries = []
+                try:
+                    for entry in sorted(os.listdir(dirpath)):
+                        full = os.path.join(dirpath, entry)
+                        if os.path.isdir(full):
+                            files = []
+                            for root, _dirs, filenames in os.walk(full):
+                                for fn in sorted(filenames):
+                                    rel = os.path.relpath(os.path.join(root, fn), full)
+                                    if rel.startswith("."):
+                                        continue
+                                    ext = os.path.splitext(fn)[1].lower()
+                                    files.append({"name": rel, "ext": ext})
+                            entries.append({"name": entry, "files": files})
+                        else:
+                            ext = os.path.splitext(entry)[1].lower()
+                            if ext in (".pdf", ".md", ".txt", ".py", ".yaml", ".json", ".html", ".csv"):
+                                entries.append({"name": entry, "files": [{"name": entry, "ext": ext}]})
+                except Exception as exc:
+                    logger.warning("Browse scan error for %s: %s", dirpath, exc)
+                return entries
+            try:
+                tree = _scan(papers_dir)
+                # Add vault notes (supports both flat .md and subdirectory structure)
+                vault_entries = []
+                for entry in sorted(os.listdir(vault_dir)):
+                    full = os.path.join(vault_dir, entry)
+                    if os.path.isdir(full):
+                        files = []
+                        for root, _dirs, filenames in os.walk(full):
+                            for fn in sorted(filenames):
+                                rel = os.path.relpath(os.path.join(root, fn), full)
+                                if rel.startswith("."):
+                                    continue
+                                ext = os.path.splitext(fn)[1].lower()
+                                files.append({"name": rel, "ext": ext})
+                        if files:
+                            vault_entries.append({"name": entry, "files": files})
+                    elif entry.endswith(".md"):
+                        vault_entries.append({"name": entry, "files": [{"name": entry, "ext": ".md"}]})
+                if vault_entries:
+                    vault_entries.sort(key=lambda e: e["name"])
+                    tree.append({"name": "Notes", "files": vault_entries})
+            except Exception as e:
+                _json_response(self, {"error": str(e)}, 500)
+                return
+            _json_response(self, {"tree": tree})
+        elif path == "/api/read":
+            filepath = params.get("path", "")
+            if not filepath:
+                _json_response(self, {"error": "missing path"}, 400)
+                return
+            basedirs = [str(self.org.config.papers_dir), str(self.org.config.vault_dir)]
+            content = None
+            for basedir in basedirs:
+                abspath = os.path.normpath(os.path.join(basedir, filepath))
+                if abspath.startswith(os.path.normpath(basedir)) and os.path.isfile(abspath):
+                    try:
+                        with open(abspath, encoding="utf-8") as f:
+                            content = f.read()
+                        break
+                    except Exception:
+                        continue
+            if content is None:
+                # Also try the vault directory separately for "Notes/" prefix
+                if filepath.startswith("Notes/"):
+                    stripped = filepath[len("Notes/"):]
+                    for basedir in basedirs:
+                        abspath = os.path.normpath(os.path.join(basedir, stripped))
+                        if abspath.startswith(os.path.normpath(basedir)) and os.path.isfile(abspath):
+                            try:
+                                with open(abspath, encoding="utf-8") as f:
+                                    content = f.read()
+                                break
+                            except Exception:
+                                continue
+            if content is None:
+                _json_response(self, {"error": "file not found"}, 404)
+                return
+            _json_response(self, {"path": filepath, "content": content})
         elif path == "/api/raw":
             file_path = params.get("path", "")
-            if file_path and Path(file_path).exists():
-                content = Path(file_path).read_text()
-                _html_response(self, f"<pre style='background:#0a0e17;color:#e2e8f0;padding:20px;font-size:13px;line-height:1.7;white-space:pre-wrap'>{content}</pre>")
-            else:
+            if not file_path:
+                _json_response(self, {"error": "missing path"}, 400)
+                return
+            basedirs = [str(self.org.config.papers_dir), str(self.org.config.vault_dir), "."]
+            abspath = os.path.normpath(file_path)
+            found = os.path.isfile(abspath)
+            if not found:
+                for basedir in basedirs:
+                    abspath = os.path.normpath(os.path.join(basedir, file_path))
+                    if os.path.isfile(abspath):
+                        found = True
+                        break
+            if not found and file_path.startswith("Notes/"):
+                stripped = file_path[len("Notes/"):]
+                for basedir in [str(self.org.config.vault_dir), str(self.org.config.papers_dir)]:
+                    abspath = os.path.normpath(os.path.join(basedir, stripped))
+                    if os.path.isfile(abspath):
+                        found = True
+                        break
+            if not found:
                 _json_response(self, {"error": "not found"}, 404)
+                return
+            ext = os.path.splitext(abspath)[1].lstrip(".").lower()
+            ct = {
+                "png": "image/png", "jpg": "image/jpeg", "jpeg": "image/jpeg",
+                "gif": "image/gif", "svg": "image/svg+xml", "pdf": "application/pdf",
+                "md": "text/markdown; charset=utf-8",
+                "txt": "text/plain; charset=utf-8",
+            }.get(ext, "application/octet-stream")
+            try:
+                if ext in ("png", "jpg", "jpeg", "gif", "svg", "pdf"):
+                    with open(abspath, "rb") as f:
+                        data = f.read()
+                    self.send_response(200)
+                    self.send_header("Content-Type", ct)
+                    self.send_header("Content-Length", str(len(data)))
+                    self.send_header("Cache-Control", "max-age=3600")
+                    self.end_headers()
+                    self.wfile.write(data)
+                else:
+                    content = Path(abspath).read_text(encoding="utf-8")
+                    _html_response(self, f"<pre style='background:#0a0e17;color:#e2e8f0;padding:20px;font-size:13px;line-height:1.7;white-space:pre-wrap'>{content}</pre>")
+            except Exception as e:
+                _json_response(self, {"error": str(e)}, 500)
         elif path == "/api/web/list":
             from hive_datatype import NodeType
             web_nodes = [
@@ -313,6 +449,13 @@ info.textContent += ' | OK';
             _json_response(self, result)
         elif path == "/api/refresh":
             result = self.org.refresh_papers()
+            _json_response(self, result)
+        elif path == "/api/papers/refresh":
+            paper_id = data.get("paper_id", params.get("paper_id", ""))
+            if not paper_id:
+                _json_response(self, {"error": "missing paper_id"}, 400)
+                return
+            result = self.org.refresh_paper(paper_id)
             _json_response(self, result)
         elif path == "/api/definitions":
             result = self.org.generate_definitions()

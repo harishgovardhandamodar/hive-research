@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from .arxiv_fetcher import PaperInfo, fetch_by_id, fetch_by_id_with_meta, search_arxiv
+from .arxiv_fetcher import PaperInfo, download_pdf, fetch_by_id, fetch_by_id_with_meta, search_arxiv
 from .config import Config
 from .graph import KnowledgeGraph
 from .llm import LLMInterface
@@ -99,54 +99,163 @@ class Organizer:
             return None
         from .pipeline import _sanitize_id
         safe = _sanitize_id(n.label) or paper_id
-        p = Path(self.config.vault_dir) / f"{safe}.md"
-        return str(p) if p.exists() else None
+        vault_dir = Path(self.config.vault_dir)
+        # New structure: vault/{safe}/00_notes.md
+        notes_file = vault_dir / safe / "00_notes.md"
+        if notes_file.exists():
+            return str(notes_file)
+        # Fallback to old flat file
+        legacy = vault_dir / f"{safe}.md"
+        return str(legacy) if legacy.exists() else None
+
+    def _find_pdf(self, arxiv_id: str) -> Path | None:
+        from pathlib import Path
+        papers_dir = self.config.papers_dir
+        exact = papers_dir / f"{arxiv_id}.pdf"
+        if exact.exists():
+            return exact
+        base = arxiv_id.split("v")[0] if "v" in (arxiv_id or "") else arxiv_id
+        import glob as _glob
+        matches = sorted(_glob.glob(str(papers_dir / f"{base}*.pdf")))
+        if matches:
+            return Path(matches[0])
+        return None
+
+    def _refresh_single(self, node: Any) -> bool:
+        import json as _json
+        from pathlib import Path
+        from .parser import extract_text, extract_images_from_pdf
+        from .pipeline import _sanitize_id
+
+        try:
+            # Try to find or download the PDF
+            pdf_path = self._find_pdf(node.arxiv_id)
+            if not pdf_path:
+                base_id = node.arxiv_id.split("v")[0] if "v" in (node.arxiv_id or "") else node.arxiv_id
+                pdf_path = download_pdf(base_id, self.config.papers_dir)
+            if not pdf_path or not pdf_path.exists():
+                logger.warning("No PDF found for %s — skipping", node.arxiv_id)
+                return False
+            text = extract_text(pdf_path)
+            if not text:
+                logger.warning("No text extracted from PDF for %s — skipping", node.arxiv_id)
+                return False
+            logger.info("Refreshing %s — %s", node.arxiv_id, node.label[:60])
+
+            safe_title = _sanitize_id(node.label) or node.arxiv_id
+            figures_dir = Path(self.config.vault_dir) / safe_title / "figures"
+            figures = extract_images_from_pdf(pdf_path, figures_dir)
+
+            analysis = self.pipeline._analyze_text(text, node.label, figures=figures)
+            notes = analysis.get("notes", "")
+            experiment = analysis.get("experiment", {})
+            results = analysis.get("results", {})
+            experiments_list = analysis.get("experiments", [])
+            lineage_notes = analysis.get("lineage_notes", "")
+            extra = _json.dumps({"notes": notes, "experiment": experiment, "results": results})
+            node.definition = extra[:2000]
+            base_id = node.arxiv_id.split("v")[0] if "v" in (node.arxiv_id or "") else node.arxiv_id
+            paper_info = fetch_by_id(base_id)
+            if not paper_info:
+                from .arxiv_fetcher import PaperInfo
+                paper_info = PaperInfo(
+                    arxiv_id=base_id,
+                    title=node.label,
+                    authors=[],
+                    published=getattr(node, 'published', ''),
+                    updated='',
+                    abstract=getattr(node, 'abstract', ''),
+                    categories=[],
+                    authors_str=getattr(node, 'authors', ''),
+                    affiliations_str=getattr(node, 'affiliations', ''),
+                )
+            summary = analysis.get("summary", "")
+            tags = analysis.get("tags", [])
+            concepts_data = analysis.get("concepts", [])
+            # Use node.label for consistent directory naming (graph label may differ from arxiv title)
+            self.pipeline._write_notes_multi(
+                node.arxiv_id, paper_info, summary, tags, concepts_data,
+                notes=notes, experiment=experiment, results=results,
+                experiments_list=experiments_list, lineage_notes=lineage_notes,
+                figures=figures, safe_title=safe_title,
+            )
+            self.kg.save()
+            return True
+        except Exception as exc:
+            logger.error("Failed to refresh %s: %s", node.arxiv_id, exc, exc_info=True)
+            return False
+
+    def notes_missing(self, paper_id: str) -> bool:
+        """Check if a paper is missing its note files on disk."""
+        from pathlib import Path
+        from .pipeline import _sanitize_id
+        n = self.kg.get_paper(paper_id)
+        if not n:
+            return True
+        safe = _sanitize_id(n.label) or paper_id
+        notes_file = Path(self.config.vault_dir) / safe / "00_notes.md"
+        if notes_file.exists():
+            return False
+        legacy = Path(self.config.vault_dir) / f"{safe}.md"
+        if legacy.exists():
+            return False
+        return True
+
+    def refresh_paper(self, paper_id: str) -> dict[str, Any]:
+        import threading
+        def _do():
+            n = self.kg.get_paper(paper_id)
+            if not n:
+                logger.warning("refresh_paper: %s not found", paper_id)
+                return
+            ok = self._refresh_single(n)
+            if ok:
+                logger.info("Single paper refresh complete: %s", paper_id)
+            else:
+                logger.warning("refresh_paper: could not refresh %s (PDF or text issue)", paper_id)
+        t = threading.Thread(target=_do, daemon=True)
+        t.start()
+        return {"status": "started", "paper_id": paper_id, "message": f"Refreshing {paper_id} in background."}
 
     def refresh_papers(self) -> dict[str, Any]:
-        import json as _json
-        from .parser import extract_text
         from hive_datatype import NodeType
         import threading
+
+        # Pre-scan: count papers missing notes
+        missing_ids = [
+            n.arxiv_id for n in self.kg._hive.nodes
+            if n.type == NodeType.PAPER and self.notes_missing(n.arxiv_id)
+        ]
+        total_papers = sum(1 for n in self.kg._hive.nodes if n.type == NodeType.PAPER)
+
+        if not missing_ids:
+            logger.info("All %d papers already have notes on disk", total_papers)
+            return {"status": "done", "refreshed": 0, "total": total_papers, "missing": 0}
+
+        logger.info("Found %d/%d papers missing notes — starting refresh", len(missing_ids), total_papers)
+        total_missing = len(missing_ids)
         refreshed = [0]
         def _do_refresh():
-            for node in self.kg._hive.nodes:
-                if node.type != NodeType.PAPER:
-                    continue
-                has_extra = False
-                if node.definition:
-                    try:
-                        parsed = _json.loads(node.definition)
-                        has_extra = bool(parsed.get("notes") or parsed.get("experiment") or parsed.get("results"))
-                    except Exception:
-                        has_extra = False
-                if has_extra:
-                    continue
-                pdf_path = self.config.papers_dir / f"{node.arxiv_id}.pdf"
-                if not pdf_path.exists():
-                    continue
-                text = extract_text(pdf_path)
-                if not text:
-                    continue
-                logger.info("Refreshing %s — %s", node.arxiv_id, node.label[:60])
-                analysis = self.pipeline._analyze_text(text, node.label)
-                notes = analysis.get("notes", "")
-                experiment = analysis.get("experiment", {})
-                results = analysis.get("results", {})
-                extra = _json.dumps({"notes": notes, "experiment": experiment, "results": results})
-                node.definition = extra[:2000]
-                paper_info = fetch_by_id(node.arxiv_id.split("v")[0] if "v" in (node.arxiv_id or "") else node.arxiv_id)
-                if paper_info:
-                    summary = analysis.get("summary", "")
-                    tags = analysis.get("tags", [])
-                    concepts_data = analysis.get("concepts", [])
-                    self.pipeline._write_note(node.arxiv_id, paper_info, summary, tags, concepts_data, notes, experiment, results)
-                refreshed[0] += 1
-            if refreshed[0]:
-                self.kg.save()
-                logger.info("Refresh complete: %d papers updated", refreshed[0])
+            for idx, arxiv_id in enumerate(missing_ids, 1):
+                n = self.kg.get_paper(arxiv_id)
+                ok = n and self._refresh_single(n)
+                if ok:
+                    refreshed[0] += 1
+                logger.info(
+                    "Refresh progress [%d/%d] %s: %s",
+                    idx, total_missing, "OK" if ok else "FAIL",
+                    arxiv_id,
+                )
+            logger.info("Refresh complete: %d/%d papers updated", refreshed[0], total_missing)
         t = threading.Thread(target=_do_refresh, daemon=True)
         t.start()
-        return {"status": "started", "message": f"Refreshing papers in background. Check activity log for progress."}
+        return {
+            "status": "started",
+            "refreshed": 0,
+            "total": total_papers,
+            "missing": len(missing_ids),
+            "message": f"Refreshing {len(missing_ids)} papers in background.",
+        }
 
     def generate_definitions(self) -> dict[str, Any]:
         from hive_datatype import NodeType
