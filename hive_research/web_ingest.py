@@ -197,8 +197,12 @@ class WebIngester:
         ]
         (web_vault / "article.md").write_text("\n".join(article_lines))
 
-        # Save HTML copy for reference
-        (web_vault / "article.html").write_text(html)
+        # Generate PDF from HTML
+        try:
+            from weasyprint import HTML as HTMLtoPDF
+            HTMLtoPDF(string=html).write_pdf(str(web_vault / "article.pdf"))
+        except Exception as e:
+            logger.warning("PDF generation failed for %s: %s", url, e)
 
         # Write summary/notes with tags and figures
         note_lines = [

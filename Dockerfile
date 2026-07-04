@@ -1,6 +1,6 @@
 FROM python:3.13-slim
 
-RUN apt-get update && apt-get install -y --no-install-recommends gcc build-essential && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y --no-install-recommends gcc build-essential libpango-1.0-0 libpangocairo-1.0-0 shared-mime-info libcairo2 libffi-dev && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
@@ -11,7 +11,7 @@ COPY hive-research/pyproject.toml /app/hive-research/pyproject.toml
 COPY hive-research/hive_research/ /app/hive-research/hive_research/
 COPY hive-research/config.yaml /app/config.yaml
 
-RUN pip install --no-cache-dir /app/hive-research/ html2text
+RUN pip install --no-cache-dir /app/hive-research/ html2text weasyprint
 RUN cp /app/hive-research/hive_research/dashboard.html /usr/local/lib/python3.13/site-packages/hive_research/dashboard.html
 
 RUN groupadd -r hive && useradd -r -g hive -d /app -s /bin/false hive
