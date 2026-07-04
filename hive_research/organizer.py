@@ -121,7 +121,7 @@ class Organizer:
             return Path(matches[0])
         return None
 
-    def _refresh_single(self, node: Any) -> bool:
+    def _refresh_single(self, node: Any, model: str | None = None) -> bool:
         import json as _json
         from pathlib import Path
         from .parser import extract_text, extract_images_from_pdf
@@ -146,7 +146,7 @@ class Organizer:
             figures_dir = Path(self.config.vault_dir) / safe_title / "figures"
             figures = extract_images_from_pdf(pdf_path, figures_dir)
 
-            analysis = self.pipeline._analyze_text(text, node.label, figures=figures)
+            analysis = self.pipeline._analyze_text(text, node.label, figures=figures, model=model)
             notes = analysis.get("notes", "")
             experiment = analysis.get("experiment", {})
             results = analysis.get("results", {})
@@ -201,14 +201,14 @@ class Organizer:
             return False
         return True
 
-    def refresh_paper(self, paper_id: str) -> dict[str, Any]:
+    def refresh_paper(self, paper_id: str, model: str | None = None) -> dict[str, Any]:
         import threading
-        def _do():
+        def _do(m=model):
             n = self.kg.get_paper(paper_id)
             if not n:
                 logger.warning("refresh_paper: %s not found", paper_id)
                 return
-            ok = self._refresh_single(n)
+            ok = self._refresh_single(n, model=m)
             if ok:
                 logger.info("Single paper refresh complete: %s", paper_id)
             else:
@@ -217,7 +217,7 @@ class Organizer:
         t.start()
         return {"status": "started", "paper_id": paper_id, "message": f"Refreshing {paper_id} in background."}
 
-    def refresh_papers(self) -> dict[str, Any]:
+    def refresh_papers(self, model: str | None = None) -> dict[str, Any]:
         from hive_datatype import NodeType
         import threading
 
@@ -235,10 +235,10 @@ class Organizer:
         logger.info("Found %d/%d papers missing notes — starting refresh", len(missing_ids), total_papers)
         total_missing = len(missing_ids)
         refreshed = [0]
-        def _do_refresh():
+        def _do_refresh(m=model):
             for idx, arxiv_id in enumerate(missing_ids, 1):
                 n = self.kg.get_paper(arxiv_id)
-                ok = n and self._refresh_single(n)
+                ok = n and self._refresh_single(n, model=m)
                 if ok:
                     refreshed[0] += 1
                 logger.info(

@@ -448,14 +448,16 @@ info.textContent += ' | OK';
             result = self.org.web.ingest(url)
             _json_response(self, result)
         elif path == "/api/refresh":
-            result = self.org.refresh_papers()
+            model = data.get("model", params.get("model", None))
+            result = self.org.refresh_papers(model=model)
             _json_response(self, result)
         elif path == "/api/papers/refresh":
             paper_id = data.get("paper_id", params.get("paper_id", ""))
             if not paper_id:
                 _json_response(self, {"error": "missing paper_id"}, 400)
                 return
-            result = self.org.refresh_paper(paper_id)
+            model = data.get("model", params.get("model", None))
+            result = self.org.refresh_paper(paper_id, model=model)
             _json_response(self, result)
         elif path == "/api/definitions":
             result = self.org.generate_definitions()

@@ -380,6 +380,11 @@ textarea{resize:vertical;min-height:60px;font-family:inherit}
         <div id="browseLineage" style="display:none;padding:6px 14px;border-top:1px solid var(--border);flex-shrink:0;max-height:120px;overflow-y:auto;font-size:11px;background:var(--surface)"></div>
         <div id="browsePreviewToolbar" style="display:none;padding:4px 14px;border-top:1px solid var(--border);flex-shrink:0;gap:6px;align-items:center">
           <span id="browsePreviewPath" style="font-size:10px;color:var(--text3);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span>
+          <select id="modelSelector" style="font-size:10px;padding:2px 6px;border-radius:4px;border:1px solid var(--border);background:var(--surface);color:var(--text);width:140px" onchange="saveModelPref()">
+            <option value="">Default (fast)</option>
+            <option value="qwen3.6:35b-mlx">qwen3.6:35b-mlx</option>
+            <option value="llama3.2:3b">llama3.2:3b</option>
+          </select>
           <button class="btn btn-sm btn-outline" onclick="recreateCurrentNotes()" title="Regenerate vault notes for this paper">&#x21BB; Recreate Notes</button>
         </div>
         <div id="browsePaperPreview" style="flex:1;overflow-y:auto;padding:10px 14px;border-top:1px solid var(--border)" class="markdown-body"></div>
@@ -656,7 +661,10 @@ async function loadHeaderStats(){
 async function refreshPapers(){
   addLog('Scanning papers for missing notes...','INPROGRESS');
   try{
-    const r=await api('/api/refresh','POST');
+    const body={};
+    const m=getSelectedModel();
+    if(m)body.model=m;
+    const r=await api('/api/refresh','POST',body);
     if(r.status==='done'||r.missing===0){
       addLog('All '+r.total+' papers already have notes on disk','DONE');
       return;
@@ -1039,12 +1047,25 @@ function renderPapers(papers){
   }).join('');
 }
 
+function getSelectedModel(){
+  const sel=document.getElementById('modelSelector');
+  if(sel&&sel.value)return sel.value;
+  return localStorage.getItem('hive_model')||'';
+}
+function saveModelPref(){
+  const sel=document.getElementById('modelSelector');
+  if(sel)localStorage.setItem('hive_model',sel.value);
+}
+
 async function refreshPaperNote(paperId){
   const btn=document.querySelector('.bp-refresh[onclick*="'+paperId+'"]');
   if(btn){btn.style.opacity='0.4';btn.style.pointerEvents='none';btn.textContent='\u21BB';}
   addLog('Refreshing notes for '+paperId+'...','REFRESH');
   try{
-    const r=await api('/api/papers/refresh','POST',{paper_id:paperId});
+    const body={paper_id:paperId};
+    const m=getSelectedModel();
+    if(m)body.model=m;
+    const r=await api('/api/papers/refresh','POST',body);
     if(r.status==='started'){
       addLog('Refresh started for '+paperId,'DONE');
       // Poll for completion - poll the paper data
@@ -1682,6 +1703,11 @@ window.addEventListener('resize',()=>{
 });
 
 // ── Init ──
+// Restore model preference
+(function(){
+  const saved=localStorage.getItem('hive_model');
+  if(saved){const sel=document.getElementById('modelSelector');if(sel)sel.value=saved}
+})();
 switchPanel('graph');
 loadGpuStatus();
 loadHeaderStats();

@@ -209,6 +209,7 @@ class PaperPipeline:
         text: str,
         title: str,
         figures: list[dict[str, Any]] | None = None,
+        model: str | None = None,
     ) -> dict[str, Any]:
         max_chars = 12000
         truncated = text[:max_chars]
@@ -254,7 +255,7 @@ class PaperPipeline:
             '  "relations": [{"source": "...", "target": "...", "relation": "..."}]\n'
             "}"
         )
-        analysis = self.llm.extract_structured(main_prompt)
+        analysis = self.llm.extract_structured(main_prompt, model=model)
         analysis["tags"] = tags
         return analysis
 
