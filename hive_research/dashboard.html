@@ -1011,15 +1011,18 @@ function showNodePreview(d){
     const hasCite=gData.links&&gData.links.some(l=>l.relation==='cites'&&(l.source===d.id||l.target===d.id));
     if(hasCite)more+='<div><b>&#x1F517; Lineage:</b> Prior research linked</div>';
     if(d.arxiv_id)actions+='<a href="https://arxiv.org/abs/'+d.arxiv_id+'" target="_blank" class="btn btn-sm">arXiv</a>';
-    if(d.arxiv_id)actions+='<a href="https://arxiv.org/pdf/'+d.arxiv_id+'" target="_blank" class="btn btn-sm btn-outline">PDF</a>';
-    // Look up note path from papers API
+    // Look up note path to add Browse buttons
     (async()=>{
       try{
         const pp=await api('/api/papers');
         const match=pp.find(p=>p.id===d.id);
         if(match&&match.note_path){
-          el('previewActions').innerHTML+=match.note_path?'<button class="btn btn-sm btn-outline" onclick="window.open(\'/api/raw?path='+encodeURIComponent(match.note_path)+'\',\'_blank\')">MD</button>':'';
+          actions+='<button class="btn btn-sm btn-outline" onclick="openInBrowse(\''+d.id+'\',\'note\')">MD</button>';
         }
+        if(d.arxiv_id){
+          actions+='<button class="btn btn-sm btn-outline" onclick="openInBrowse(\''+d.id+'\',\'pdf\')">PDF</button>';
+        }
+        el('previewActions').innerHTML=actions;
       }catch(_){}
     })();
     if(d.definition&&d.type==='web'){
@@ -1296,6 +1299,44 @@ function renderLineage(paperId){
   }
   el_.innerHTML=parts.join(' &nbsp;&middot;&nbsp; ');
   el_.style.display='block';
+}
+
+function openInBrowse(paperId, type){
+  switchPanel('browse');
+  // Wait for browse to load if needed, then select and open file
+  const doOpen=()=>{
+    selectPaper(paperId);
+    if(type==='note'){
+      // Find the note file from browse file tree
+      const p=_browsePapers.find(x=>x.id===paperId);
+      if(p&&p.note_dir){
+        const dirName=p.note_dir.split('/').pop();
+        _browseFileTree.forEach(entry=>{
+          if(entry.name==='Notes'){
+            (entry.files||[]).forEach(sub=>{
+              if(sub.name===dirName){
+                const isFlat=sub.files.length===1&&sub.files[0].name===sub.name;
+                (sub.files||[]).forEach(f=>{
+                  if(f.ext==='.md'){
+                    const fp=isFlat?'Notes/'+sub.name:'Notes/'+sub.name+'/'+f.name;
+                    setTimeout(()=>openPaperFile(fp,f.ext),100);
+                  }
+                });
+              }
+            });
+          }
+        });
+      }
+    }else if(type==='pdf'){
+      // Open PDF from the papers directory
+      const baseId=(paperId||'').split('v')[0]||paperId;
+      const fp=baseId+'.pdf';
+      setTimeout(()=>openPaperFile(fp,'.pdf'),100);
+    }
+  };
+  // If browse already loaded, do it now, else wait
+  if(_browsePapers.length){doOpen()}
+  else{setTimeout(doOpen,500)}
 }
 
 function selectPaper(paperId){
