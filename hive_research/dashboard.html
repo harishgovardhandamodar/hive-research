@@ -1387,23 +1387,40 @@ function _conceptsTicker(concepts){
   return '<div class="concept-ticker" style="margin-top:4px"><div class="concept-ticker-track">'+inner+'&nbsp;&nbsp;&bull;&nbsp;&nbsp;'+inner+'</div></div>';
 }
 
+function _renderPaperItem(p){
+  const active=_selectedPaper&&_selectedPaper.id===p.id?' active':'';
+  const isWeb=p.id.startsWith('web_');
+  const badges=(p.note_path?'<span class="bp-badge" title="Has note file">&#x1F4DD;</span>':'')+
+    (p.has_lineage?'<span class="bp-badge" title="Has lineage">&#x1F517;</span>':'')+
+    (isWeb?'<span class="bp-badge" title="Web link">&#x1F310;</span>':'');
+  const meta=p.authors||(isWeb?'Web Article':'');
+  return '<div class="browse-paper'+active+'" data-paper-id="'+esc(p.id)+'" onclick="selectPaper(\''+esc(p.id)+'\')">'+
+    '<div style="display:flex;align-items:flex-start;justify-content:space-between">'+
+    '<div style="flex:1;min-width:0">'+
+    '<div class="bp-title">'+esc(p.title.substring(0,60))+'</div>'+
+    '<div class="bp-meta">'+esc(meta.substring(0,40))+'</div>'+
+    '</div>'+
+    (!isWeb?'<span class="bp-refresh" title="Regenerate notes for this paper" onclick="event.stopPropagation();refreshPaperNote(\''+esc(p.id)+'\')">&#x21BB;</span>':'')+
+    '</div>'+
+    badges+
+    '</div>';
+}
+
 function renderPapers(papers){
   const c=el('browsePapers');
   if(!papers.length){c.innerHTML='<div style="color:var(--text3);text-align:center;padding:20px;font-size:11px">No papers</div>';return}
-  c.innerHTML=papers.map(p=>{
-    const active=_selectedPaper&&_selectedPaper.id===p.id?' active':'';
-    return '<div class="browse-paper'+active+'" data-paper-id="'+esc(p.id)+'" onclick="selectPaper(\''+esc(p.id)+'\')">'+
-      '<div style="display:flex;align-items:flex-start;justify-content:space-between">'+
-      '<div style="flex:1;min-width:0">'+
-      '<div class="bp-title">'+esc(p.title.substring(0,60))+'</div>'+
-      '<div class="bp-meta">'+esc(p.authors.substring(0,40))+'</div>'+
-      '</div>'+
-      '<span class="bp-refresh" title="Regenerate notes for this paper" onclick="event.stopPropagation();refreshPaperNote(\''+esc(p.id)+'\')">&#x21BB;</span>'+
-      '</div>'+
-      (p.note_path?'<span class="bp-badge" title="Has note file">&#x1F4DD;</span>':'')+
-      (p.has_lineage?'<span class="bp-badge" title="Has lineage">&#x1F517;</span>':'')+
-      '</div>';
-  }).join('');
+  const rpapers=papers.filter(p=>!p.id.startsWith('web_'));
+  const rwebs=papers.filter(p=>p.id.startsWith('web_'));
+  let html='';
+  if(rpapers.length){
+    html+='<div style="font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;padding:6px 10px 2px">&#x1F4C4; Papers <span style="color:var(--text3);font-weight:400;text-transform:none">('+rpapers.length+')</span></div>';
+    html+=rpapers.map(p=>_renderPaperItem(p)).join('');
+  }
+  if(rwebs.length){
+    html+='<div style="font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;padding:6px 10px 2px;border-top:1px solid var(--border);margin-top:4px">&#x1F310; Web Links <span style="color:var(--text3);font-weight:400;text-transform:none">('+rwebs.length+')</span></div>';
+    html+=rwebs.map(p=>_renderPaperItem(p)).join('');
+  }
+  c.innerHTML=html||'<div style="color:var(--text3);text-align:center;padding:20px;font-size:11px">No content</div>';
 }
 
 function getSelectedModel(){
