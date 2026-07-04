@@ -2030,7 +2030,7 @@ function renderPoolBrowse(data){
           '<div class="pactions">'+
           '<a href="https://arxiv.org/abs/'+p.arxiv_id+'" target="_blank">arXiv</a>'+
           '<a href="https://arxiv.org/pdf/'+p.arxiv_id+'" target="_blank">PDF</a>'+
-          (imported?'<span class="pool-imported">&#x2713; Imported</span>':'<button class="act" onclick="importPoolPaper(\''+p.arxiv_id+'\')">+ Add to KB</button>')+
+           (imported?'<span class="pool-imported">&#x2713; Imported</span>':'<button class="act pool-import-btn" data-aid="'+p.arxiv_id+'" onclick="importPoolPaper(\''+p.arxiv_id+'\')">+ Add to KB</button>')+
           '</div></div>';
       }).join('')+'</div>';
   }).join('');
@@ -2098,16 +2098,20 @@ function updatePoolStats(papers){
 }
 
 async function importPoolPaper(aid){
+  const btns=document.querySelectorAll('.pool-import-btn[data-aid="'+aid+'"]');
+  btns.forEach(b=>{b.textContent='Adding...';b.disabled=true;b.style.opacity='.6'});
   addLog('Importing '+aid+' from pool...','INPROGRESS');
   try{
     const r=await api('/api/pool/import','POST',{arxiv_id:aid});
     if(r.status==='added'||r.status==='exists'){
       addLog('Imported: '+aid,'DONE');
+      btns.forEach(b=>{b.textContent='\u2713 Added';b.style.borderColor='var(--green)';b.style.color='var(--green)';b.disabled=true});
       loadPoolList();
       loadPoolGraph();
       refreshAll();
     }else{
       addLog('Import failed: '+(r.message||JSON.stringify(r)),'ERROR');
+      btns.forEach(b=>{b.textContent='+ Add to KB';b.disabled=false;b.style.opacity='1'});
     }
   }catch(e){addLog('Import error: '+e,'ERROR')}
 }
